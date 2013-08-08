@@ -31,20 +31,6 @@ On my storage server, i will host a special website that displays all of my medi
 5. Create a convertion script
     * Automatically repackages video as an MP4 for streaming
 
-# Media Types
-## Video
-* Video Codec: H264
-    * It also supports VP8, but H264 is a superior codec so ill use that
-* Audio Codec: AAC
-    * It also supports MP3 and OPUS, but im not sure how surround sound will be supported.
-* Format: WebM or MP4
-    * WebM is basically MKV.  So mabye Chromecast will support an H264 
-
-## Audio
-
-
-## Pictures
-* I think any Image will be easily displayed, but we'll see.
 
 ## HDHomeRun Prime
 In the future, id like to stream live TV from my HDHOmeRun prime to the chromecast.  I would need to transcdoe the video on the fly, but I think its technically possible.   
@@ -72,14 +58,48 @@ In the future, id like to stream live TV from my HDHOmeRun prime to the chromeca
 
 Note:  The "Connection: Keep-Alive" might be important.  According to Wikipedia, its always enabled. 
 
-## Transcoding
-The major downside of Chromecast (and probably the main reason its so cheap) is that it only supports a small number of codecs.  You cannot assume that every media file will be the correct format.  Therefore, we will need some sort of transcoding engine that prepares video for Casting.
+## Media Codecs and Formats
+
+The major downside of Chromecast (and probably the main reason its so cheap) is that it only supports a small number of codecs.  
+* Video
+    * H264, VP8
+* Audio
+    * AAC, OPUS, MP3
+* Containers
+    * MP4, WebM,MPEG-DASH, SmoothStreaming
+* Containers
+    * TTML
+    * WebVTT
+
+### Transcoding
+You cannot assume that every media file will be the correct format.  Therefore, we will need some sort of transcoding engine that prepares video for Casting.
 
 When an un-supported media file is selected, it will be put into a transcoding queue.  All transcoded files will be stored in a /tmp directory.  This /tmp directory will kind of act like a fixed-size FIFO.  When the size limit is exceeded, it will delete the oldest transcoded file.
 
-If possible, i will also start streaming the partial video file as soon as transcoding starts.  That would avoid any lag between when the media file is selected and when it starts playing
+If possible, i will also start streaming the partial video file as soon as transcoding starts.  That would avoid any lag between when the media file is selected and when it starts playing.  That would also allow me to stream Live video my my HDHomeRun Tuner in the future.
 
- 
+I also found that PCI decoder cards exist.  Broadcomm sells an H264 decoder card on Amazon for $12.  Im thinking that we could istall these PCI cards in the server and use them to transcode the video without drawing many watts of power.  
+
+### Archiving Codec
+Currently, I archieve all my video using the H264 codec.  This is because it is a relatively efficient codec that all of my frontend devices can decode.  If we add on-the-fly transcoding, we would be able to archive my video using the Next-Gen codecs (HEVC or VP9) before the HW support comes
+
+### Transmitting Codec
+The exact codec we transcode to (ie. the Target Codec) is currently TBD.
+
+The safest choice would be MP4+H264+AAC.  However, the encoding tools are all non-free.
+
+My thoughts are that since WebM is essentially an MKV container, why not put H264 and OPUS in there?  It wouldnt technically be a WebM file, but since the decoding engine is there, it is technically possible.  
+
+## Encryption
+Another service this server could provide is encryption.  All media files could be encrypted using AES256.  When the user opens the webpage, he/she will be asked to enter the encryption password.  If the password is correct, the webserver will be able to decrypt the data and serve it to the Chromecast or Computer.  
+
+This would be useful for parental filtering.  You could give your children the password for the general content and hide the mature content from them.
+
+This would also be useful for document backup.  You could encrypt all of your taxes and bill information.
+
+### Separate Partitions
+Each password will unlock a subset of content.  You could have 1 password for general content, a seprate password for R movies, and a separate password for Tax documents.  When the user enters the password, only the content that he/she has access to will show up.   
+
 ## Sender Application
 This is the web application run on the phone or table.   
 
