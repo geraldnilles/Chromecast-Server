@@ -16,6 +16,7 @@ local.properties
 .settings/
 .loadpath
 *.mp4
+ChromeExtSource/*
 
 # External tool builders
 .externalToolBuilders/
