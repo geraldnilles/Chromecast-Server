@@ -28,9 +28,6 @@ First, we will analyze what services are currently being run on each device
     * UDP Socket Interface
         * This is used to interface with the Web App's WebSockets.  Play, Pause, and Seek commands are sent via WebSockets
 
-TODO Figure out if there is a spcial APP-ID that points to a local IP Address  
-
-Note: If google doesnt give me an AppID, i could just setup Firewall that redirects one of the Test Apps to my local server.  
 
 ## Launching A Web App Overview
 This section will cover all of the steps required to launch a WebApp on A Chromecast Device.
@@ -84,5 +81,18 @@ Once the Web App is loaded on the Chromecast, WebSockets are used to send playba
 
 The exact commands are no known at this time, but we can probably figure them out by looking at the GoogleCast Chrome App source code.  The Chrome App is 100% javascript. However, the variables are renamed to make it difficult to read.  Its kind of annoying, but it'll work.
   
+Google provides an API for these playback commands. However, it is technically possible to create your own API for controlling yoru Web App.  
+
+# Potential Road Blocks
+
+## App ID 
+In order to launch applications, you will need Google to assign you an App ID.  The App ID is essentially a look-up code.  When the Chromecast is given an App ID, it gives a Google Server the App ID and google provides the Web App's URL.  This means that Google controls the platform and could potentailly block this product from happening.   
+
+### Workaround
+One way to get around this would be to setup a DNS or Proxy server.  When Chromecast attempts to fetch Web App URLs, you could intercept the request and respond with your app.  This is a little jenky, but it is possible.
+
+Also, if google provides an App ID that redirects to a Local URL (192.168.\*.\*), that would also be cool since multiple people could use the same. 
+
+The finally option would be to wait for Chromecast to get hacked and modify the app lauching code to skip this portion of the code.
 
 
