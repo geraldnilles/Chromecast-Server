@@ -68,7 +68,7 @@ The DIAL REST is used to launch Web applications on the Chromecast.
 
 * Launch Request
     * Sender asks for the Chromecast to Launch the provided App
-    * The App-ID is used
+    * The App-ID is sent using an HTTP POST request
 * Fetch Web App URL
     * Chromecast sends App-ID to google's servers.  Google responds with the Web App's URL
 * Load Web App's URL
@@ -79,20 +79,20 @@ The DIAL REST is used to launch Web applications on the Chromecast.
 ## WebSocket Commands
 Once the Web App is loaded on the Chromecast, WebSockets are used to send playback commands to the Chromecast device.  Some examples of playback commands are Play, Pause, and Seek.
 
-The exact commands are no known at this time, but we can probably figure them out by looking at the GoogleCast Chrome App source code.  The Chrome App is 100% javascript. However, the variables are renamed to make it difficult to read.  Its kind of annoying, but it'll work.
+The exact commands are not known at this time, but we can probably figure them out by looking at the GoogleCast Chrome App source code.  The Chrome App is 100% javascript so you can read the source. However, the variables are renamed to make it difficult to read.  Its kind of annoying, but it'll help with reverse engineering.
   
-Google provides an API for these playback commands. However, it is technically possible to create your own API for controlling yoru Web App.  
+Google provides an API for these playback commands. However, it is technically possible to create your own API for controlling yoru Web App.  Since we control the Reciever and Sender applications, we could use any protocol we want within WebSockets. 
 
 # Whitelisting
-For this project to work, you will need to whitelist your device.  By whitelisting your device, you register your Chromecast device and your App's URL with Google's servers.  
+For this project to work, you will need to whitelist your device.  When you whitelist your device, you notify Google that it is OK to use your device for development purposes.
 
 ## Why?
-In order to launch an app, you need an App-ID.  In order to get an App-ID, you need to register your app and device with Google.  When you send the App-ID to the Chromecast, it asks a Google server for the App URL.  If you want Google's server to return the correct URL, you will need to send your device serial number and App URL to Google.  The App-ID is linked to the serial number so you will need your own App-ID.  You cant use mine.
+In order to launch an app, you need an App-ID.  In order to get an App-ID, you need to register your app and device with Google.  When you send the App-ID to the Chromecast, the Chomecast SW asks a Google server for the App URL.  If you want Google's server to return a URL, you will need to send your device serial number and App URL to Google.  The App-ID is linked to the serial number so you will need your own App-ID.  You cant use mine.
 
 ## How?
 Google has a form on the GoogleCast developer site.  When filling out the form, i just told the truth.  I told them i was making an app to send items from my NAS to my Chromecast.  For the URLs, I put a local URL (http://192.168.0.200/chromecast) in the box.  48 hours later, i recieved an App-ID.  
 
-It looks like Google is not very critcal when handing out App-IDs so there is no need to lie.  I also like that they let me use a Local URL.  That will make it much easier.
+It looks like Google is not very critcal when handing out App-IDs so there is no need to lie.  I also like that they let me use a Local URL.  That will make it much simpler. (No need to register a Domain name or modify my local DNS server)
 
 ## Sharing App-IDs
 I am not sure if its safe to share App-IDs.  I will keep mine private for now, but i may share it down the road if i learn it is OK.

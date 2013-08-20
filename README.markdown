@@ -15,7 +15,6 @@ Use Chromecast to display/playback all of my local media content.
 
 On my storage server, i will host a special website that displays all of my media files.  Anyone on the network can access this website with any computer (Smartphone, tablet, laptop, desktop, etc...).  When they select a media file, the Website UI will ask where they want to play it (Any of the TVs or on the current device).  
 
-
 # Overview
 1. Server Hosts A WebUI showing all of the avaiable movies
 2. User Selects a Movie to Watch.  
@@ -30,6 +29,7 @@ On my storage server, i will host a special website that displays all of my medi
 * Learn how the GoogleCast protocol works
 
 ## In Progress
+1. Create Python Script for Detecting and Launching Apps using DIAL Protocols
 1. Launch a "Hello World" Web App on my Chromecast Device
     * No Video or Audio
 2. Create Web Server that can stream video to a Chrome Browser.
