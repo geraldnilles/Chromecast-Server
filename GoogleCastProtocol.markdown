@@ -83,16 +83,24 @@ The exact commands are no known at this time, but we can probably figure them ou
   
 Google provides an API for these playback commands. However, it is technically possible to create your own API for controlling yoru Web App.  
 
-# Potential Road Blocks
+# Whitelisting
+For this project to work, you will need to whitelist your device.  By whitelisting your device, you register your Chromecast device and your App's URL with Google's servers.  
 
-## App ID 
-In order to launch applications, you will need Google to assign you an App ID.  The App ID is essentially a look-up code.  When the Chromecast is given an App ID, it gives a Google Server the App ID and google provides the Web App's URL.  This means that Google controls the platform and could potentailly block this product from happening.   
+## Why?
+In order to launch an app, you need an App-ID.  In order to get an App-ID, you need to register your app and device with Google.  When you send the App-ID to the Chromecast, it asks a Google server for the App URL.  If you want Google's server to return the correct URL, you will need to send your device serial number and App URL to Google.  The App-ID is linked to the serial number so you will need your own App-ID.  You cant use mine.
 
-### Workaround
-One way to get around this would be to setup a DNS or Proxy server.  When Chromecast attempts to fetch Web App URLs, you could intercept the request and respond with your app.  This is a little jenky, but it is possible.
+## How?
+Google has a form on the GoogleCast developer site.  When filling out the form, i just told the truth.  I told them i was making an app to send items from my NAS to my Chromecast.  For the URLs, I put a local URL (http://192.168.0.200/chromecast) in the box.  48 hours later, i recieved an App-ID.  
 
-Also, if google provides an App ID that redirects to a Local URL (192.168.\*.\*), that would also be cool since multiple people could use the same. 
+It looks like Google is not very critcal when handing out App-IDs so there is no need to lie.  I also like that they let me use a Local URL.  That will make it much easier.
 
-The finally option would be to wait for Chromecast to get hacked and modify the app lauching code to skip this portion of the code.
+## Sharing App-IDs
+I am not sure if its safe to share App-IDs.  I will keep mine private for now, but i may share it down the road if i learn it is OK.
+
+## Testing Whitelist Status
+After a device is whitelisted, you will be able to look at the debug info.  Open a browser and go to http://[Chromecast IP Address]:9222.  if it works, you're device is now whitelisted.  
+
+
+
 
 
