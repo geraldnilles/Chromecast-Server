@@ -4,15 +4,26 @@
 # This module is used to launch Chromecast Apps
 #--------------------------
 
+import httplib
 
 ## Launches an App Given the App-ID
-def launch_app_from_id(device,app_id,args=None):
-	# Send Post Request to device["path"]+app_id with args as the body
-	# Content Type is text/plain; charset="utf-8
+def launch_app(device,app_id,args=None):
 
+	# Setup HTTP Connection
+	conn = httplib.HTTPConnection(device["ip"],device["port"])
+	# Setup Headers
+	headers = {
+			"Content-Type": "application/x-www-form-urlencoded; charset=\"utf-8\"",
+			"User-Agent":"...",
+			}
+	# Setup DATA.  it looks like they add some sort of pairing code.  
+	# It look randomely generated so im guessing its just a UUID to ID
+	# the same session
+	data = "pairingCode="+uuid.uuid()
+	conn.request("POST",device["app_path"]+app_id,"",headers)
+	r = conn.getresponse()
+	data = r.read()
+	hs = r.getheaders()
+	print hs,data
 
-## Ask Chromecast for Application Staus
-def application_info_request(device,app_id):
-	# Send GET request to device["path"]+app_id
-	# Parse the XML response
 

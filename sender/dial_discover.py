@@ -132,10 +132,16 @@ def add_device_name(d):
 	conn.request("GET",d["info_path"])
 	r = conn.getresponse()
 	data = r.read()
-	
+
+	# Add Friendly name to device object
 	m = re.search("<friendlyName>(.*)</friendlyName>",data)
 	d["name"] = m.group(1)
 
+	# Add Application URL to deice object
+	for h in r.getheaders():
+		if h[0] == 'application-url':
+			m = re.search("http://.*?(/.*)",h[1])
+			d["app_path"] = m.group(1)
 
 
 
