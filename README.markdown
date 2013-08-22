@@ -27,9 +27,10 @@ On my storage server, i will host a special website that displays all of my medi
 * Whitelist Chromecast for Development usage
     * Success!
 * Learn how the GoogleCast protocol works
+* Python Script for Discovering Chromecast devices
 
 ## In Progress
-1. Create Python Script for Detecting and Launching Apps using DIAL Protocols
+1. Python Scrit for Launching Apps 
 1. Launch a "Hello World" Web App on my Chromecast Device
     * No Video or Audio
 2. Create Web Server that can stream video to a Chrome Browser.

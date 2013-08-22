@@ -55,9 +55,11 @@ This section will cover all of the steps required to launch a WebApp on A Chrome
 The DIAL discovery is used to discovery new Chromecast device on the network 
 
 * M-Search Request
-    * This is sent over UDP on the multicast address 239.255.255.250 and port 1900.
+    * This is sent over UDP on the multicast address 239.255.255.250.
+    * The destination port of this Multicast is 1900.  However, the source port will be selected randomly by the OS.
 * M-Search Response
-    * Chromecast responds with a LOCATION header that contains the Chromecasts IPv4 address
+    * Chromecast responds with a LOCATION header that contains the Chromecasts IPv4 address.
+    * This is sent with a UDP unicast back to the Requestor's IP address.  The port it uses will be the same as the M-Search Request's "source" port
 * Device Description Request
     * Sender asks for more information about the device
 * Device Description Response
