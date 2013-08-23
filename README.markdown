@@ -28,11 +28,12 @@ On my storage server, i will host a special website that displays all of my medi
     * Success!
 * Learn how the GoogleCast protocol works
 * Python Script for Discovering Chromecast devices
+* Python Script for Launching Apps (given the App ID)
 
 ## In Progress
-1. Python Scrit for Launching Apps 
 1. Launch a "Hello World" Web App on my Chromecast Device
     * No Video or Audio
+    * Will need to setup the correct path on my Server
 2. Create Web Server that can stream video to a Chrome Browser.
     * It must allow for skipping (Support HTTP Byte Range headers)
 

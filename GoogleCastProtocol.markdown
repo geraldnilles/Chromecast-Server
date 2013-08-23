@@ -58,25 +58,33 @@ The DIAL discovery is used to discovery new Chromecast device on the network
     * This is sent over UDP on the multicast address 239.255.255.250.
     * The destination port of this Multicast is 1900.  However, the source port will be selected randomly by the OS.
 * M-Search Response
-    * Chromecast responds with a LOCATION header that contains the Chromecasts IPv4 address.
+    * Chromecast responds with a LOCATION header that contains a URL to the Chromecast Info XML file.  This URL gives us the IP, the port, and the info path of the device.
     * This is sent with a UDP unicast back to the Requestor's IP address.  The port it uses will be the same as the M-Search Request's "source" port
-* Device Description Request
-    * Sender asks for more information about the device
-* Device Description Response
-    * Chomecast responds with details.  including the Chromecast's name
+* Device Description Request/Response
+    * Once you have the Location header, you can request the devices Info XML file and gather more details.
+    * The XML body contains the devices Friendly name.  This allows the user to identify each device easily.
+    * The HTTP Headers contain the Application URL path.  This is used to launch and manage apps.
 
-## Web App Launch
-The DIAL REST is used to launch Web applications on the Chromecast.
+## Launch and Manage Running Apps
+The DIAL REST is used to manage Web applications on the Chromecast.
 
 * Launch Request
     * Sender asks for the Chromecast to Launch the provided App
-    * The App-ID is sent using an HTTP POST request
-* Fetch Web App URL
+    * The App-ID is sent using an HTTP POST request.
+    * The 'Origin' header needs to be set in order to request an app.  
+        * Chromecast will barf (404) if this is not correct
+        * Currently, i am using the GoogleCast Chome Extension's Origin.  I is the same as the Extension's URL (chrome-extension://boadgeojelhgndaghljhdicfkmllpafd)
+        * I am guessing this is just to track usage data (ie Chrome vs iOS vs Android apps).  Hopefully this ID doesnt change often (not the end of the world, but it would be annoying
+    * The Body of the POST request contains app launching arguments.  These arguments are URL encoded (like a GET url).  
+        * The pairingCode argument must be there.  I am guessing this is used to identify sessions.  For now, i am just generating a UUID each time and seems to be cool with it.  
+* Fetch Web App
     * Chromecast sends App-ID to google's servers.  Google responds with the Web App's URL
-* Load Web App's URL
-    * URL is loaded into the Chromecast Browser
+    * The App's URL is loaded into the Chromecast Browser and displpayed on the screen
 * Launch Response
-    * Chromecast confirms that the App was launced
+    * Chromecast responds to the HTTP request with a 201 message.
+    * The body of the response is empty, but the headers contain some info about the app.  More specifically, it contains a "Location" header that can be used to kill the app later.  
+
+You can also kill web apps.  To do this, you just have to send a "DELETE" request to the Apps instance URL.  
 
 ## WebSocket Commands
 Once the Web App is loaded on the Chromecast, WebSockets are used to send playback commands to the Chromecast device.  Some examples of playback commands are Play, Pause, and Seek.
@@ -96,13 +104,15 @@ Google has a form on the GoogleCast developer site.  When filling out the form, 
 
 It looks like Google is not very critcal when handing out App-IDs so there is no need to lie.  I also like that they let me use a Local URL.  That will make it much simpler. (No need to register a Domain name or modify my local DNS server)
 
+**NOTE:** You will need to setup the Chromecast to send its serial number to Google's servers.  In the Chomecast Setup app, check the "Send this Chomecast's serial number when checking for updates"
+
 ## Sharing App-IDs
 I am not sure if its safe to share App-IDs.  I will keep mine private for now, but i may share it down the road if i learn it is OK.
 
 ## Testing Whitelist Status
 After a device is whitelisted, you will be able to look at the debug info.  Open a browser and go to http://[Chromecast IP Address]:9222.  if it works, you're device is now whitelisted.  
 
-
+If this doesnt work, verify your Chromecast is setup correctly (sending its serial number to Google) and then reboot the Chromecast (pull the USB cable)
 
 
 

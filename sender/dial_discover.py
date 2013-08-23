@@ -100,6 +100,8 @@ def m_search_request():
 			d["ip"] = m.group(1)
 			d["port"] = m.group(2)
 			d["info_path"] = m.group(3)
+
+
 			# Add it to the device list
 			devices.append(d)
 
