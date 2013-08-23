@@ -16,9 +16,16 @@ Use Chromecast to display/playback all of my local media content.
 On my storage server, i will host a special website that displays all of my media files.  Anyone on the network can access this website with any computer (Smartphone, tablet, laptop, desktop, etc...).  When they select a media file, the Website UI will ask where they want to play it (Any of the TVs or on the current device).  
 
 # Overview
-1. Server Hosts A WebUI showing all of the avaiable movies
-2. User Selects a Movie to Watch.  
-3. Chromecast Starts streaming that video directly from the local server.  
+
+In a nutshell, this is how the Chromecast works:
+
+![Standard Chromecast Usage](https://raw.github.com/geraldnilles/Chromecast-Server/master/drawings/Chromecast%20Server.png)
+
+For this project, My local media server will handle more of the Google Cast protocol.  This will allow me to stream local network content to the Chromecast.  This is how it will work:
+
+![Modified Chomecast Server](https://raw.github.com/geraldnilles/Chromecast-Server/master/drawings/Chromecast%20Standard.png)
+
+
 
 # Current Progress
 
