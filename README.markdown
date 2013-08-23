@@ -19,11 +19,11 @@ On my storage server, i will host a special website that displays all of my medi
 
 In a nutshell, this is how the Chromecast works:
 
-![Standard Chromecast Usage](https://raw.github.com/geraldnilles/Chromecast-Server/master/drawings/Chromecast%20Server.png)
+![Standard Chromecast Usage](https://raw.github.com/geraldnilles/Chromecast-Server/master/drawings/Standard%20Chromecast%20Usage.png)
 
 For this project, My local media server will handle more of the Google Cast protocol.  This will allow me to stream local network content to the Chromecast.  This is how it will work:
 
-![Modified Chomecast Server](https://raw.github.com/geraldnilles/Chromecast-Server/master/drawings/Chromecast%20Standard.png)
+![Modified Chomecast Server](https://raw.github.com/geraldnilles/Chromecast-Server/master/drawings/Chromecast%20Server.png)
 
 
 
