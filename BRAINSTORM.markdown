@@ -5,6 +5,10 @@ Brainstorm
 This page will act as a dropping zone for ideas, concepts, or data that has not been implemented yet.
 
 
+# Phone to Chromecast
+Another thing people will want to do is send media files locally stored on their phone to the chromecast.  
+
+One solution would be to add an "Upload" option to the Server's WebUI.  Then any video, audio, music can be uploaded, transcoded on the server, and added to the play queue.  
 
 # HTTP Byte Ranges
 This is needed if we want to skip ahead in video streams
@@ -71,20 +75,16 @@ This would also be useful for document backup.  You could encrypt all of your ta
 ## Separate Partitions
 Each password will unlock a subset of content.  You could have 1 password for general content, a seprate password for R movies, and a separate password for Tax documents.  When the user enters the password, only the content that he/she has access to will show up.   
 
-# Sender Application
+# Google API Examples
+## Sender Application
 This is the web application run on the phone or table.   
 
 It will ask Google's servers for Chromecast devices on my network.  After it recieves the list, the user can select which device it wants to send to.  Finally, it will ask the user what video to play.
 
 	https://developers.google.com/cast/chrome_sender
 
-# Reciever Application
+## Reciever Application
 
 	https://developers.google.com/cast/developing_your_receiver
 
 
-# Proof of Concept
-An app has been developed that streams local videos on your Android device to Chromecast.  This app is called "MyCast".  There was an article about it on Phandroid.com
-
-This app is not exactly what i want to do (since i want to stream from a local server to the ChromeCast).  However, it does prove that local streaming is possible outside of TabCasting. 
- 

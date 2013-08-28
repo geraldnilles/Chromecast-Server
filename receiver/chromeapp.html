@@ -2,13 +2,63 @@
 <head>
 	<title>Local Player</title>
 
-	<script>
-		// Load Video
-	</script>
+<style>
+
+
+</style>
+
+<script>
+var video_domain = "192.168.0.200:9876"
+
+function load_video(path){
+	var video = document.getElementsByTag("video")[0];
+	video.src = video_domain+path;
+}
+
+function websocket_handler(data){
+	var d = url_decode(data);
+	switch upper(d["cmd"]) { // Transform to Uppercase
+		case "PLAYPAUSE":
+			play_pause();
+			break;
+
+		case "LOAD":
+			load(d["arg1"]);
+			break;
+
+		case "STOP":
+			stop();
+			break;
+
+		case "SKIP":
+			skip_to(d["arg1"]);
+			break;
+
+		case "STATUS":
+			send_status();
+			break;
+		}
+}
+
+function ready(){
+
+}
+
+
+
+</script>
+
 </head>
 <body>
+	<h2>Video Title</h2>
+	<p>Sub Title</p>
 
-	<video ></video>
+	<video></video>
+
+	<div id="status">
+		Play/Pause Status
+		time_remaining/time_total
+	</div>
 
 </body>
 </html>

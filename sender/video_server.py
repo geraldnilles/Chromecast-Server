@@ -47,8 +47,8 @@ def serve_video(environ,start_response):
 	f.seek(0,0)     # Jump to beginning
 
 	chunk_size = 2**20
-	start = 0;
-	stop = fs-1;
+	start = 0
+	stop = fs-1
 
 	# Figure out the range that was requested
 	if ("HTTP_RANGE" in environ and environ["HTTP_RANGE"] != ""):
@@ -59,27 +59,30 @@ def serve_video(environ,start_response):
 		if m.group(2) != "":
 			stop = int(m.group(2))
 
-		if stop < start:
-			stop=start
+		#if stop < start:
+		#	stop=start
 
 		print "stop:",stop
 		print "start:",start
 
 		f.seek(start)
 
-		headers.append( ('Content-Range',str(start)+"-"+str(stop)+"/"+str(fs)) )
+	headers.append( ('Content-Range',str(start)+"-"+str(stop)+"/"+str(fs)) )
 	
 
 	headers.append( ('Content-Length',str(stop-start+1)) )
 
-	if start != 0:
-		start_response('206 Partial Content', headers)
-	else:
-		start_response("200 OK", headers)
+#	if start != 0:
+
+	start_response('206 Partial Content', headers)
+
+#	else:
+#		start_response("200 OK", headers)
 
 	print f.tell()
 	print repr(headers)
-	return wsgiref.util.FileWrapper(f,stop-start+1)
+	data = f.read(stop-start+1)
+	return data
 	#return iter(lambda: f.read(2**20), "")
 	
 

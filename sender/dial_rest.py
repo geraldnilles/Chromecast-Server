@@ -27,7 +27,7 @@ def launch_app(device,app_id,args=None):
 			}
 
 	# The Data needs to contain a pairing code. A Random UUID works
-	data += "pairingCode="+str(uuid.uuid1())#device["uuid"]
+	data = "pairingCode="+str(uuid.uuid1())#device["uuid"]
 	# TODO Add the remaining args here
 	# Here is an example that launches a specific YouTube video: 
 	#	data += "&v=HCR7i5F5L8c"
