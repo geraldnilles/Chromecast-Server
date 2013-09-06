@@ -36,12 +36,10 @@ For this project, My local media server will handle more of the Google Cast prot
 * Learn how the GoogleCast protocol works
 * Python Script for Discovering Chromecast devices
 * Python Script for Launching Apps (given the App ID)
+* Launch a "Hello World" Web App on my Chromecast Device
 
 ## In Progress
-1. Launch a "Hello World" Web App on my Chromecast Device
-    * No Video or Audio
-    * Will need to setup the correct path on my Server
-2. Create Web Server that can stream video to a Chrome Browser.
+1. Create Web Server that can stream video to a Chrome Browser.
     * It must allow for skipping (Support HTTP Byte Range headers)
 
 ## Future

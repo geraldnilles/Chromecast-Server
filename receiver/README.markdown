@@ -2,7 +2,18 @@ Chromecast WebApp
 =================
 
 # Introdution
+This HTML is loaded onto the Chromecast's browser.  This page will contain the video player.
 
+# Apps
+
+## Hello World
+The goal of this app is just to display a message on my TV via Chromecast.
+
+## main.html
+This will be the main video playing app
+
+# Page Style
+By default, the background color is black.  Therefore, if your app uses black text without changing the background color, you wont see anything.  
 
 # WebSocket Protocol
 WebSockets are used to control the WebApp.  Google Cast's API uses its own protocol based on WebSockets.  Instead of reverse engineeering thier API, i will just use my own protocol.
