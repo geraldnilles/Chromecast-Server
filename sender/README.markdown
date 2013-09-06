@@ -173,6 +173,7 @@ The NGINX configuration will look like this:
 
 			location /chromecast {
 				root /path/to/chromecast;
+				autoindex on;
 			}
 			location /mediacenter/ {
 				fastcgi_pass localhost:9771;
