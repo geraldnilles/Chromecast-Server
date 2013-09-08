@@ -14,12 +14,47 @@ body{
 
 </style>
 
+<script>
+
+
+function ready(){
+	var connection = new WebSocket("ws://127.0.0.1:50505",[]);
+	connection.onopen = function () {
+		connection.send('What Up Ho'); // Send the message 'Ping' to the server
+	};
+
+	// Log errors
+	connection.onerror = function (error) {
+  		console.log('WebSocket Error ' + error);
+	};
+
+	// Log messages from the server
+	connection.onmessage = function (e) {
+		console.log('Server: ' + e.data);
+	};
+
+	connection.onclose = function (e){
+		console.log("Connection Closed");
+	};
+
+	//connection.send("Hey Bitch!")
+	
+}
+
+
+window.onload = ready();
+
+</script>	
 </head>
 <body>
         <div id="message">
                 <h2>Hello Chromecast World!!!</h2>
                 <h4>Wilkison is a whore.</h4>
-        </div>
+	</div>
+
+	<div id="debug">
+		Websocket Commands Go Here
+	</div>
 
 </body>
 </html>

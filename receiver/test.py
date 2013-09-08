@@ -7,13 +7,58 @@
 
 import json, argparse
 
+#--------------
+# Templates
+#--------------
+
+WS_HANDSHAKE = """GET HTTP 1.1\r
+x=1 \r
+y=2 \r
+z=3 \r
+\r"""
+
 ## Send WebSocket Command
 #
-## Sends data to the given IP/Port using WebSocket
+# Sends data to the given IP/Port using WebSocket
 def send_ws_command(ip,port,data):
-	pass
+	#----------
+	# Open a Websocket
+	#----------
+	# Open TCP Socket
+	
+	# Send handshake
+	s.send(WS_HANDSHAKE)
+	# Recieve Chromecasts handshake response.  Discard the response since
+	# i dont care if the response is wrong
+	data = s.recv()
+
+	#-----------
+	# Send Command
+	#-----------
+	# Add header to data
+	#    Struct that concatenates opcode + length + data
+	# Send our command
+	s.send(data)
+
+	#-----------
+	# Recv Response
+	#----------
+	# Recieve Opcode and Length
+	header = s.recv(2)
+	# if second byte is 126:
+		# size = s.recv(2)
+	# elif second byte is 127:
+		# size = s.recv(4)
+
+	# Receive the rest of the packet
+	packet = s.recv(size)
+	# Convert to a Python Dict and return
+	return json.loads(packet)
 
 
+## Toggle between Play and Pause
+#
+# Sends command to Chromecast to Start and Stop playback
 def play_pause(ip,port):
 	send_ws_command(ip,port,encode({
 			"cmd":"PLAYPAUSE"
@@ -40,11 +85,15 @@ def stop(ip,port):
 ## Skip Playback
 #
 ## Jumps to the specified point in the playback
-def skip(ip,port,point):
-	send_ws_command(ip,port,encode({
-			"cmd":"SKIP",
-			"point":point
-		}))
+def skip(ip,port,seconds=None,percent=None):
+	cmd = {}
+	cmd["cmd"] = "SKIP"
+	if percent:
+		cmd["percent"] = str(percent) 
+	elif seconds:
+		cmd["seconds"] = str(seconds)
+
+	send_ws_command(ip,port,encode(cmd))
 
 def status(ip,port):
 	resp = send_ws_command(ip,port,encode({
