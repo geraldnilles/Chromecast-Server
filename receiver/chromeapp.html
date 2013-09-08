@@ -3,17 +3,15 @@
         <title>Chromecast Media Player</title>
 
 <style>
+/* Make the background color Non-black so see comments */
 body{
         background-color: #ccf;
 }
 
-#message {
-        margin-top: 4em;
-        text-align: center;
-}
-
+/* Hardcoded to my 720p TV */
 video{
-	width: 100%;
+	width: 1280px;
+	height: 720px;
 }
 
 </style>
@@ -23,8 +21,8 @@ video{
 
 function ready(){
 
-
-	var connection = new WebSocket("ws://127.0.0.1:50505",[]);
+	// Hard coded to my NAS server
+	var connection = new WebSocket("ws://192.168.0.200:50505",[]);
 	connection.onopen = function () {
 		// Say hello to the server... dont think this is needed
 		//connection.send('READY'); 
@@ -58,6 +56,9 @@ function ready(){
 			case "SKIP":
 				skip(video,obj);
 				break;
+			case "LOAD":
+				load(video,obj);
+				break;
 			default:
 				get_status(video);
 		}
@@ -86,6 +87,13 @@ function ready(){
 		connection.send(JSON.stringify(obj));
 	}
 
+	function load(video,obj){
+		video.src = obj["src"];
+		connection.send("OK");
+	}
+
+	// TODO Add a periodic WS Connection Check to attempt a reconnect
+
 }
 
 
@@ -94,10 +102,8 @@ window.onload = ready();
 </script>	
 </head>
 <body>
-        <div id="message">
-                <h2>Hello Chromecast World!!!</h2>
-		<video src="http://media.w3.org/2010/05/bunny/movie.mp4"></video>
-	</div>
+	<!-- Set Big Buck Bunny as default for development -->
+	<video src="/media/The Hammer.mp4"></video>
 
 
 </body>

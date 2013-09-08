@@ -123,6 +123,10 @@ def service_ws(ws_conn):
 		# If Error is due to no data being ready, ignore
 		if msg.errno == 10035:
 			pass
+		# Temporarily Unavaiable.  Not sure what this means but i'll
+		# ignore it for now
+		if msg.errno == 11:
+			pass
 		else:
 			# If the error is different, exit the loop
 			print repr(msg)

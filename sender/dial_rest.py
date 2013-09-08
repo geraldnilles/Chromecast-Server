@@ -12,7 +12,7 @@ import uuid
 def launch_app(device,app_id,args=None):
 
 	# Setup HTTP Connection
-	conn = httplib.HTTPConnection(device["ip"],device["port"])
+	conn = httplib.HTTPConnection(str(device["ip"]),int(device["port"]))
 	# Setup Headers
 	headers = {
 			# TODO See if these 2 arguments are required.
