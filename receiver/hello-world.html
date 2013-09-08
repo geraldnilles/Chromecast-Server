@@ -1,6 +1,6 @@
 <html>
 <head>
-        <title>Chromecast Server</title>
+        <title>Chromecast Media Player</title>
 
 <style>
 body{
@@ -12,15 +12,22 @@ body{
         text-align: center;
 }
 
+video{
+	width: 100%;
+}
+
 </style>
 
 <script>
 
 
 function ready(){
+
+
 	var connection = new WebSocket("ws://127.0.0.1:50505",[]);
 	connection.onopen = function () {
-		connection.send('What Up Ho'); // Send the message 'Ping' to the server
+		// Say hello to the server... dont think this is needed
+		//connection.send('READY'); 
 	};
 
 	// Log errors
@@ -30,15 +37,55 @@ function ready(){
 
 	// Log messages from the server
 	connection.onmessage = function (e) {
-		console.log('Server: ' + e.data);
+		var obj = JSON.parse(e.data || "{}");
+
+		console.log('Server: ' + obj["cmd"]);
+		
+		parse_command(obj);	
 	};
 
 	connection.onclose = function (e){
 		console.log("Connection Closed");
 	};
 
-	//connection.send("Hey Bitch!")
-	
+
+	function parse_command(obj){
+		var video = document.getElementsByTagName("video")[0];
+		switch(obj["cmd"]){
+			case "PLAYPAUSE":
+				play_pause(video);
+				break;
+			case "SKIP":
+				skip(video,obj);
+				break;
+			default:
+				get_status(video);
+		}
+	}
+
+	function play_pause(video){
+		if( video.paused){
+			video.play();
+		} else {
+			video.pause();
+		}
+
+		connection.send("OK")
+	}
+
+	function skip(video,obj){
+		video.currentTime = video.duration*obj["percent"]/100
+		connection.send("OK")
+	}
+
+	function get_status(video){
+		var obj = {};
+		obj["percent"] = video.currentTime/video.duration*100;
+		obj["paused"] = video.paused;
+		obj["src"] = video.currentSrc;
+		connection.send(JSON.stringify(obj));
+	}
+
 }
 
 
@@ -49,12 +96,9 @@ window.onload = ready();
 <body>
         <div id="message">
                 <h2>Hello Chromecast World!!!</h2>
-                <h4>Wilkison is a whore.</h4>
+		<video src="http://media.w3.org/2010/05/bunny/movie.mp4"></video>
 	</div>
 
-	<div id="debug">
-		Websocket Commands Go Here
-	</div>
 
 </body>
 </html>

@@ -23,7 +23,11 @@ Connection: Upgrade\r
 Sec-WebSocket-Accept: {0}\r
 \r
 """
-#Sec-WebSocket-Protocol: chat\r
+
+
+#----------------------
+# WebSocket Functions
+#----------------------
 
 def setup_chromecast_listener():
 	s = socket.socket(socket.AF_INET,socket.SOCK_STREAM)
@@ -40,7 +44,7 @@ def wait_for_chromecast(sock,timeout=None):
 
 def complete_handshake(conn):
 	# Grap the WebSocket Handshake Request
-	data = chrome_conn.recv(1024)
+	data = conn.recv(1024)
 	#print data
 	# Grab the WS Key using a RegEx (TODO Make this case-insensitive)
 	m = re.search("Sec-WebSocket-Key: (\S*)",data)
@@ -87,7 +91,7 @@ def decode_ws_packet(p):
 		j = i%4
 		# XOR the mask and the payload byte by byte
 		decoded += chr(ord(mask[j])^ord(payload[i]))
-	print decoded
+	return decoded
 
 def encode_ws_packet(string):
 	# Send a single text packet
@@ -97,25 +101,100 @@ def encode_ws_packet(string):
 	# Payload
 	packet += string
 	
-	print packet.encode("hex")
+	#print packet.encode("hex")
 	return packet
 
+def service_ws(ws_conn):
+	try:
+		# Reset the WebSocket timeout to We dont want to waste 
+		# time waiting for unexpected WS packets
+		ws_conn.settimeout(0)
+		data = ws_conn.recv(1024)
+		# TODO Identify the Packet Type
+		# For now, just print the raw data
+		print repr(data)
+		# If the WS returns an empty frame, the WebApp was 
+		# closed.
+		if data == "":
+			print "WS Connection Closed by WebApp"
+			# Close the Connections
+			return False
+	except socket.error as msg:
+		# If Error is due to no data being ready, ignore
+		if msg.errno == 10035:
+			pass
+		else:
+			# If the error is different, exit the loop
+			print repr(msg)
+			return False
 	
+	return True
+
+#---------------------
+# IPC Functions
+#---------------------
+
+## Create the IPC Port
+#
+# THis socket will be used to collect commmands from other processes on this
+# machine.  For testing purposes, this will be a IP address.  In the future,
+# it will use Unix sockets.
+def setup_ipc_listener():
+	s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+	s.bind(("127.0.0.1",40404))
+	s.listen(1)
+	s.settimeout(5)
+	return s
+
+def service_ipc(ipc_list,ws_conn):
+	ipc_conn, addr = ipc_list.accept()
+	# Give the WebSocket 10 secondds to respond
+	ws_conn.settimeout(5)
+	# Receive data chunk from IPC
+	data = ipc_conn.recv(1024)
+	# TODO Check that it is the entire packet
+	# Encode and Send data through WebSocket Connection
+	ws_conn.sendall(encode_ws_packet(data))
+	# Receive and decode Response
+	resp = decode_ws_packet(ws_conn.recv(1024))
+	# Send Response back to IPC connection
+	ipc_conn.sendall(resp)
 
 
-# Create a connection
-chrome_conn = wait_for_chromecast(setup_chromecast_listener())
-# Perform WS handshake
-complete_handshake(chrome_conn)
+def serve_forever():
+	# Create a WebSocket Listener
+	ws_list = setup_chromecast_listener()
+	# WS Loop
+	while 1:
+		# Create a Connection with the Browser via WebSockets 
+		ws_conn = wait_for_chromecast(ws_list)
+		# Perform WS handshake
+		complete_handshake(ws_conn)
+
+		# Create an IPC listener
+		ipc_list = setup_ipc_listener()
+
+		# IPC Loop
+		while 1:
+			# Wait 5 seconds for an IPC command
+			try:
+				# Wait for a IPC connect and service it
+				service_ipc(ipc_list,ws_conn)
+			
+			except socket.timeout as msg:
+				# If it does timeout, service the WS. 
+				if not service_ws(ws_conn):
+					# break WS Server returns false 
+					break
+
+	
+	
+		ws_conn.close()
+		ipc_list.close()
 
 
-# Print the next incomming message
-decode_ws_packet(chrome_conn.recv(1024))
 
-chrome_conn.sendall(encode_ws_packet("Oh Hey"))
-
-# Close
-chrome_conn.close()
+serve_forever()
 
 """ Backup
 # Create Chromecast Server
