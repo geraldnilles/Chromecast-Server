@@ -9,7 +9,7 @@
 #--------------------
 # Imported Modules
 #-------------------
-import socket,re,hashlib,base64,struct
+import socket,re,hashlib,base64,struct,os
 
 #-----------------
 # Constants
@@ -172,13 +172,16 @@ def serve_forever():
 	ws_list = setup_chromecast_listener()
 	# WS Loop
 	while 1:
-		# Create a Connection with the Browser via WebSockets 
-		ws_conn = wait_for_chromecast(ws_list)
-		# Perform WS handshake
-		complete_handshake(ws_conn)
+		try:
+			# Create a Connection with the Browser via WebSockets 
+			ws_conn = wait_for_chromecast(ws_list)
+			# Perform WS handshake
+			complete_handshake(ws_conn)
 
-		# Create an IPC listener
-		ipc_list = setup_ipc_listener()
+			# Create an IPC listener
+			ipc_list = setup_ipc_listener()
+		except KeyboardInterrupt:
+			break
 
 		# IPC Loop
 		while 1:
@@ -192,12 +195,16 @@ def serve_forever():
 				if not service_ws(ws_conn):
 					# break WS Server returns false 
 					break
-
+			except KeyboardInterrupt:
+				break
 	
 	
 		ws_conn.close()
+		os.remove(LOCAL_UNIX_SOCKET)
+		ipc_list.shutdown(socket.SHUT_RDWR)
 		ipc_list.close()
 
+	ws_list.shutdown(socket.SHUT_RDWR)
 	ws_list.close()
 
 
