@@ -20,31 +20,38 @@ video{
 
 
 function ready(){
+	// Hardcoded to my NAS server's static IP
+	var WS_URL = "ws://192.168.0.200:50505";
 
-	// Hard coded to my NAS server
-	var connection = new WebSocket("ws://192.168.0.200:50505",[]);
-	connection.onopen = function () {
-		// Say hello to the server... dont think this is needed
-		//connection.send('READY'); 
-	};
+	var connection = null;
 
-	// Log errors
-	connection.onerror = function (error) {
-  		console.log('WebSocket Error ' + error);
-	};
+	function check_ws_connection() {
+		// If connection is undefined or closed
+		if (connection == null || connection.readyState == 3){
+			delete(connection);
+			connection = new WebSocket(WS_URL,[]);
+				connection.onopen = function () {
+			};
 
-	// Log messages from the server
-	connection.onmessage = function (e) {
-		var obj = JSON.parse(e.data || "{}");
+			// Log errors
+			connection.onerror = function (error) {
+  				console.log('WebSocket Error ' + error);
+			};
 
-		console.log('Server: ' + obj["cmd"]);
+			// Log messages from the server
+			connection.onmessage = function (e) {
+				var obj = JSON.parse(e.data || "{}");
 		
-		parse_command(obj);	
-	};
+				console.log('Server: ' + obj["cmd"]);
+				
+				parse_command(obj);	
+			};
 
-	connection.onclose = function (e){
-		console.log("Connection Closed");
-	};
+			connection.onclose = function (e){
+				console.log("Connection Closed");
+			};
+		}
+	}
 
 
 	function parse_command(obj){
@@ -92,8 +99,8 @@ function ready(){
 		connection.send("OK");
 	}
 
-	// TODO Add a periodic WS Connection Check to attempt a reconnect
-
+	// Check the WebSocket Connection every 10 seconds
+	setInterval(check_ws_connection,10000);
 }
 
 
