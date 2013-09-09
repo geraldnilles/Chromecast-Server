@@ -4,34 +4,111 @@ Brainstorm
 # Introduction
 This page will act as a dropping zone for ideas, concepts, or data that has not been implemented yet.
 
+# Process Manager
+As of 9/9/2013, i have most of the individual peices of the project working.  I can launch Chromecast Apps via DIAL.  I created my own Chromecast app.  I can serve video to my Chromecast app.  And i can control the Chromecast app through Websockets.  When i start to think about comibning all of these peices, i am starting to realized that managing all of these separate peices will be tricky.  
+
+In order to run well, this project will need multiple processes.  If this was a single process, we would have to wait while videos were transcoded before we could send a websocket command which would suck.  Unfortunately, with multithreading comes headache because of interprocess communication (IPC).
+
+This section will contain my ideas for managing all of the peices of this project.  
+
+## Command Center
+Without thinking about it too much, i think i'll need a "COmmand Center" process.  This would essentially replace the 3 or 4 terminals worth of command lines processes i need to run the project currently.
+
+Command Center Responsibilities
+* Spawn and Kill other processes
+* Be the Hub for all Interprocess communication (IPC).
+* Maintain a shared database (in memory) that all processes can use to communicate status.
+    * Pending message
+    * Transcoding process
+    * Discovered Chromecast Devices
+    * Subprocess PIDs (to determine if they are still running)
+
+### Brain Dump
+* Device Discovery Daemon
+    * Periodically Runs DIAL discovery to find new Chromecast devices
+    * After a discovery is completed, the daemond will report the device list to the Command cetner.  The command center will keep this list in the database so other processes can access it.
+    * If an "On-Demand" refresh is needed, the Command center can Kill and respawn the daemon.  
+    * Communication is done using the Command Centers Unix Socket Server.  
+* Transcoding Process
+    * Transcodes Videa/Audio/Container to codec/format supported by Chromecast
+    * The Transcoding process will be spawned by the Command Center.
+    * The Progress of the transcoding will be sent backt to the Command Center using the Unix Socket server.
+    * The Command center can stop transcoding by killing the process.  
+* WebSocket Daemon
+    * Keeps a WebSocket connection open with a Chromecast devices.  Keeps the connection alive.
+    * Unlike the other cases, the Command center will act as a Unix Socket client when talking with thie process. 
+* FastCGI Daemon
+    * This hosts the dynamic portions of the Web Interface.
+    * Command center will make sure this WebApp is running
+    * This app will queery the Command Center's Unix Socket server for info
+    * HTTP requests will be independant of the command center
+* Media Indexer
+    * Browses the folders for video, audio, and images. 
+    * Items found will be added to the Command Center's database using the Unix Socket Server.
+
+So based on this, we can share 1 Unix Socket Server for the majority of the communication.  The only exception is when communicating with the WebSocket Daemon (which will be a Unix Socket client).  Since the Main Unix socket is shared, all daemons should avoid keeping the socket open for an extended period of time. 
+
+Pseudo Code:
+	Setup Unix Socket
+	Start Server ... allow for 10 listeners
+	Set timeout to 5 seconds
+
+	while(1):
+		try:
+			msg = sock.recv(1024)
+			resp = "OK" #Set the default response to "OK"
+			if msg is from Device Discovery Daemon:
+				Parse Devices from msg
+				Store devices in Database
+			elif msg is from Transcoding Process:
+				Update transcoding status in Database
+			elif msg is from Media Indexer:
+				Add new media files to the Database
+			elif msg is from FastCGI Server (or CLI):
+				Perform the action requested by the FastCGI server 
+				 - or - 
+				Use the database to prepare a response
+			else:
+				print an error to the log
+		except socket.timeout:
+			See if any subprocesses crashed and respawn if needed
+			Write database to disk
+
+
+Since we are sharing a unix socket, we will need a protocol that identifies the source of the  message.  I am thinking JSOn will be the simplest option
+
+	{
+		"source" : "discoverer",
+		"devices" : "list of devices"
+	}
+	
+ 
+	{
+		"source":"transcoder",
+		"progress": "50%"
+	}
+
+	{
+		"source":"indexer",
+		"media":[List of media dictionaries to add]
+	}
+
+	{
+		"source":"webUI",
+		"get":"devices"
+		-- or --
+		"get":"media",
+		"filter":"Regex of a search filter"
+		-- or --
+		"control":"pause/play"
+		-- or --
+		...
+	}
 
 # Phone to Chromecast
 Another thing people will want to do is send media files locally stored on their phone to the chromecast.  
 
 One solution would be to add an "Upload" option to the Server's WebUI.  Then any video, audio, music can be uploaded, transcoded on the server, and added to the play queue.  
-
-# HTTP Byte Ranges
-This is needed if we want to skip ahead in video streams
-
-1. User Requests a Video File
-    * Range: 0-
-        * Request the entire video
-2. Server Respondse by Sending the begining to send video file
-    * Status Code is 206 - Partial Content
-    * Accept-Ranges: bytes
-        * Tells the player that it accepts byte ranges
-    * Content-Length: 5000
-        * Tell the player how big the video is
-    * Content-Range 0-4999/5000
-3. User Requests a specific byte range (skipping ahead)
-    * Range: 1000-5000
-        * Player tells the server where it jumped to
-4. Server Sends Byte Range
-    * Content-Range: bytes 1000-4999/5000
-        * Server tells the player how much it is sending
-    * Content-Length: 4000
-
-Note:  The "Connection: Keep-Alive" might be important.  According to Wikipedia, its always enabled. 
 
 # Chromecast Supported Media Formats
 
