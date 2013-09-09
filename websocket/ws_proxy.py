@@ -1,4 +1,4 @@
-# Shebang
+#!/usr/bin/env python
 
 #----------------------
 # Web Socket Proxy
@@ -15,7 +15,7 @@ import socket,re,hashlib,base64,struct
 # Constants
 #-----------------
 CHROMECAST_IP_PORT = ("",50505)
-LOCAL_IP_PORT = ("",40404)
+LOCAL_UNIX_SOCKET = "/tmp/WSUnixSocket"
 
 HANDSHAKE_RESPONSE_TMPL="""HTTP/1.1 101 Switching Protocols\r
 Upgrade: websocket\r
@@ -144,8 +144,8 @@ def service_ws(ws_conn):
 # machine.  For testing purposes, this will be a IP address.  In the future,
 # it will use Unix sockets.
 def setup_ipc_listener():
-	s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-	s.bind(("127.0.0.1",40404))
+	s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+	s.bind(LOCAL_UNIX_SOCKET)
 	s.listen(1)
 	s.settimeout(5)
 	return s
@@ -156,6 +156,8 @@ def service_ipc(ipc_list,ws_conn):
 	ws_conn.settimeout(5)
 	# Receive data chunk from IPC
 	data = ipc_conn.recv(1024)
+	if data == "CLOSE":
+		return True
 	# TODO Check that it is the entire packet
 	# Encode and Send data through WebSocket Connection
 	ws_conn.sendall(encode_ws_packet(data))
@@ -196,57 +198,9 @@ def serve_forever():
 		ws_conn.close()
 		ipc_list.close()
 
+	ws_list.close()
 
 
-serve_forever()
+if __name__ == "__main__":
+	serve_forever()
 
-""" Backup
-# Create Chromecast Server
-s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-s.bind(("127.0.0.1",50505))
-s.listen(1)
-conn,addr = s.accept()
-print "Connected by",addr
-conn.settimeout(0)
-
-# Create a CLI Server
-c = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-c.bind(("127.0.0.1",40404))
-c.listen(1)
-c.settimeout(5)
-
-while 1:
-	# Check for a Handshake or for a Ping
-
-	try:
-		data = conn.recv(1)
-		# If a handshake is received, respond accordingly
-		if data == "H":
-			print "Responding to a Handshake"
-			conn.sendall("R")
-		# If a Ping is received, repond with a Pong
-		elif data == "P":
-			print "Respondin to a Ping"
-			conn.sendall("O")
-	except socket.error:
-		pass
-
-	# Wait 5 seconds for a CLI before giving up
-	try:
-		print "Waiting for a command"
-		# Accept a connection from the CLI
-		cli,addr = c.accept()
-		conn.settimeout(10)
-		# Receive the Command from CLI
-		data = cli.recv(1)
-		# Send the Command to the Chromecast
-		conn.sendall(data)
-		# Get the response from the Chromecast
-		resp = conn.recv(1)
-		# Send the response to the CLI
-		cli.sendall(resp)
-
-		conn.settimeout(0)
-	except socket.timeout:
-		pass
-"""	
