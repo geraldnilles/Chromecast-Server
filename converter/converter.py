@@ -100,21 +100,21 @@ def video_audio_repackage(s,infile):
 # @return return code of the convertion process
 def run_with_progress(s,cmd):
 	# Start the process
-	p = subprocess.Popen(cmd,stdout=subprocess.PIPE)
+	p = subprocess.Popen(cmd,stdout=subprocess.PIPE,stderr=subprocess.PIPE)
 	# Record when the process started
 	start_time = time.time()
 	# Continue this loop until the process is complete.
 	while(p.poll == None):
-		# Sleep for 10 seconds
-		time.sleep(10)
-		# Grab the Standard output and error text
-		stdo,stde = p.communicate()
+		# Read the STDERR for 10 seconds
+		out = timed_read(p,10)
 		# Create a progress object
 		progress = {}
-		# Jump to the last line of the standard output
 		# Use RE to parse frames and time
+		m = re.match("frame.*?([0-9]*).*time.*?([0-9]*)",out)
+		
 		# If possible, calcualte percentage (time/totoal time)
-		progress["percent"] = 0
+		progress["time"] = m.group(2)
+		progress["frame"] = m.group(1)
 		progress["conversion_time"] = time.time()-start_time
 		# Send progress to Command Center
 		send_update(s,progress)
@@ -122,6 +122,27 @@ def run_with_progress(s,cmd):
 	# Return the REturn Code
 	return p.poll() 
 
+## Timed File Read
+#
+# Reads the provided file object for a set period of time.  And then returns 
+# the last 100 characters.
+#
+# @param p - POpen object
+# @param t - timeout (in seconds)
+# @return The last 100 characters of the stream.
+def timed_read(p,t):
+	# Make the timeout with respect to Unix time
+	t += time.time()
+	# Output variable
+	out = ""
+	# Read stdout for t seconds or unitl the process is finished
+	while(t > time.time() and p.poll == None):
+		out += p.stderr.read(1)
+	# Trim output to be less than 100 characters
+	if len(out) > 100:
+		return out[-99:]
+	else:
+		return out
 
 ## Communicate with Command Center
 #
@@ -134,12 +155,18 @@ def run_with_progress(s,cmd):
 # @returns the return message from the server
 def communicate(s,msg):
 	try:
+		# Connect to the Socket
 		s.connect(LOCAL_UNIX_SOCKET)
+		# Convert JSON object to string (if needed)
 		if type(msg) != str:
 			msg = json.dumps(msg)
-
+		# Send
 		s.sendall(msg)
+		# Recv
 		data = s.recv(1024)
+		# Close Socket
+		s.close()
+		# Load into a JSON object
 		ret = json.loads(data)
 	except socket.timeout:
 		ret = {"error":"timeout"}
@@ -163,7 +190,13 @@ def check_queue(s):
 	else:
 		return ret
 
-## Sends a status update to the Command Center
+## Send Update to Command Center
+#
+# This a wrapper for the "communicate" function.  It sends a "status" message
+# to the Command Center
+#
+# @param s - Socket Object pointing to the command center
+# @param message - Status message being sent.
 def send_update(s,message):
 	req = {
 			"source":"converter",
@@ -171,20 +204,22 @@ def send_update(s,message):
 			}
 	return communicate(s,req)
 
-def start_daemond():
+## Start Daemon
+#
+# Start the Convert Daemon 
+def start_daemon():
+	# Create a Socket object
 	s = socket.socket(socket.AF_UNIX,socket.SOCK_STREAM)
 	s.settimeout(5)
 	while(1):
-		# Ask if there are any jobs
+		# Ask if there are any jobs in the Queue
 		job = check_queue(s)
-		# Close the connection
-		s.close()
 
 		# If so, convert them
 		if "infile" in job:
 			convert(s,job["infile"])
 
-
+		# Wait 5 seconds before queueing the queu again
 		time.sleep(5)
 		
 
