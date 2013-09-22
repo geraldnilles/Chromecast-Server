@@ -1,3 +1,4 @@
+import libcommand_center as libcc
 
 
 ## Convert to a Chromecast Friendly format
@@ -9,7 +10,7 @@
 # 	to send updates
 # @param infile - The filename of the video file you are converting
 # @return - 
-def convert(s,infile):
+def convert(infile):
 	# CHeck codecs and packaging
 	"avconv -i infile"
 	vc = ""
@@ -18,13 +19,13 @@ def convert(s,infile):
 	if vc == "x264":
 		if ac == "aac":
 			if cont == "mp4":
-				link(s,infile)
+				link(infile)
 			else:
-				repackage(s,infile)
+				repackage(infile)
 		else:
-			audio_repackage(s,infile)
+			audio_repackage(infile)
 	else:
-		video_audio_repackage(s,infile)
+		video_audio_repackage(infile)
 	# When the convertion is complete, tell the command center to remove
 	# this item from the queue
 	send_update({"complete":infile})
@@ -37,13 +38,13 @@ def convert(s,infile):
 # @param s - Socket object pointing to the Command Center (probably not needed)
 # @param infile - Input file you are linking to the http server folder.
 # @return the return code of th "ln" command
-def link(s,infile):
+def link(infile):
 	# Tell the Command Center that The file is being linked
-	send_update(s,"Linking file to http folder")
+	send_update("Linking file to http folder")
 	#
 	outfile = "%s/%s.mp4" % (HTTP_SERVER_MEDIA_FOLDER,infile)
 	# Run Command
-	ret_code = run_with_progress(s,["ln","-s","infile",outfile])
+	ret_code = run_with_progress(["ln","-s","infile",outfile])
 	return ret_code
 
 ## Repackge file to MP4
@@ -54,11 +55,11 @@ def link(s,infile):
 # @param s - Socket Object pointing to the Command Center
 # @param infile - Input file being repackaged as an MP4
 # @return return code of the convertion
-def repackage(s,infile):
-	send_update(s,"Repackaging file to MP4 (No transcoding)")
+def repackage(infile):
+	send_update("Repackaging file to MP4 (No transcoding)")
 	outfile = "%s/%s.mp4" % (HTTP_SERVER_MEDIA_FOLDER,infile)
-	ret_code = run_with_progress(s,	
-		["avconv","-i",infile,"-a:c","copy","-v:c","copy",outfile])
+	ret_code = run_with_progress(["avconv","-i",infile,"-a:c","copy",
+			"-v:c","copy",outfile])
 	return ret_code
 
 ## Transcode Audio to AAC and Repackage to MP4
@@ -69,10 +70,10 @@ def repackage(s,infile):
 # @param s - Socket Object pointing to the command center
 # @param infile - Input file being transcoded
 # @return return code of the convertion process
-def audio_repackage(s,infile):
-	send_update(s,"Transcoding Audio to AAC.")
+def audio_repackage(infile):
+	send_update("Transcoding Audio to AAC.")
 	outfile = "%s/%s.mp4" % (HTTP_SERVER_MEDIA_FOLDER,infile)
-	ret_code = run_with_progress(s,	["avconv","-i",infile,"-a:c",
+	ret_code = run_with_progress(	["avconv","-i",infile,"-a:c",
 		"lib_fdk_aac","-vbr","3","-v:c","copy",outfile])
 	return ret_code
 
@@ -83,10 +84,10 @@ def audio_repackage(s,infile):
 # @param s - Socket Object pointing to the command center
 # @param infile - Input file being transcoded
 # @return return code of the convertion process
-def video_audio_repackage(s,infile):
-	send_update(s,"Transcoding Audio to AAC and Video to H264.")
+def video_audio_repackage(infile):
+	send_update("Transcoding Audio to AAC and Video to H264.")
 	outfile = "%s/%s.mp4" % (HTTP_SERVER_MEDIA_FOLDER,infile)
-	ret_code = run_with_progress(s,	["avconv","-i",infile,"-a:c",
+	ret_code = run_with_progress(	["avconv","-i",infile,"-a:c",
 		"lib_fdk_aac","-vbr","3","-v:c","libx264","-cbr","23",outfile])
 	return ret_code
 
@@ -98,7 +99,7 @@ def video_audio_repackage(s,infile):
 # @param s - Socket Object pointing to the command center
 # @param cmd - A list of command line program and arguments
 # @return return code of the convertion process
-def run_with_progress(s,cmd):
+def run_with_progress(cmd):
 	# Start the process
 	p = subprocess.Popen(cmd,stdout=subprocess.PIPE)
 	# Record when the process started
@@ -117,33 +118,15 @@ def run_with_progress(s,cmd):
 		progress["percent"] = 0
 		progress["conversion_time"] = time.time()-start_time
 		# Send progress to Command Center
-		send_update(s,progress)
+		send_update(progress)
 
 	# Return the REturn Code
 	return p.poll() 
 
-
-## Communicate with Command Center
-#
-# This is a generic function that sends a json object to the server.  All 
-# other communication functions use this function for the actual send/recv
-#
-# @param s - Socket Object point to the command center
-# @param msg - The Message you are sending to server.  Expected to be a 
-#	JSOn object
-# @returns the return message from the server
-def communicate(s,msg):
-	try:
-		s.connect(LOCAL_UNIX_SOCKET)
-		if type(msg) != str:
-			msg = json.dumps(msg)
-
-		s.sendall(msg)
-		data = s.recv(1024)
-		ret = json.loads(data)
-	except socket.timeout:
-		ret = {"error":"timeout"}
-	return ret
+def new_msg():
+	msg = {}
+	msg["source"] = "converter"
+	return msg
 
 ## Check the Transcoding Queue
 #
@@ -152,37 +135,34 @@ def communicate(s,msg):
 #
 # @param s - Socket object pointing to the command center
 # @return the file to convert.  If no file, returns None
-def check_queue(s):
-	req = {
-			"source":"converter",
-			"request":"job"
-		}
-	ret = communicate(s,req)
-	if ret["infile"]==None:
-		return None
+def check_queue():
+	req = new_msg()
+	req["request"]="jobs"
+
+	resp = libcc.client_send_recv(req)
+	if "infile" in resp:
+		return resp
 	else:
-		return ret
+		print "Error Communicating with Command Center: "+repr(resp)
+		return resp
 
 ## Sends a status update to the Command Center
-def send_update(s,message):
-	req = {
-			"source":"converter",
-			"status":message
-			}
-	return communicate(s,req)
+def send_update(message):
+	req = new_msg()
+	req["status"]=message
+
+	resp = libcc.client_send_recv(req)
+	return resp
+
 
 def start_daemond():
-	s = socket.socket(socket.AF_UNIX,socket.SOCK_STREAM)
-	s.settimeout(5)
 	while(1):
 		# Ask if there are any jobs
-		job = check_queue(s)
-		# Close the connection
-		s.close()
+		job = check_queue()
 
 		# If so, convert them
 		if "infile" in job:
-			convert(s,job["infile"])
+			convert(job["infile"])
 
 
 		time.sleep(5)

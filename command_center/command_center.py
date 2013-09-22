@@ -1,5 +1,4 @@
-import socket
-import launcher
+import libcommand_center as libcc
 
 #--------------
 # Constants
@@ -8,9 +7,10 @@ import launcher
 class command_center:
 	def __init__(self):
 		# Set the Unix Socket
-		self.LOCAL_UNIX_SOCKET = "/tmp/CommandCenterUnixSocket"
+		self.listener = libcc.server_setup()
+
 		# Create a list of processes
-		self.processes = launcher.get_process_list()
+		self.processes = libcc.get_process_list()
 		# Init DB
 		self.db = {
 				"movies":[],
@@ -18,7 +18,7 @@ class command_center:
 				"music":[],
 				"transcoding_queue":[]
 				}
-		# TODO Open DB from 
+		# TODO Open DB from file and load existing data
 
 	def _write_db():
 		# Write DB to disk
@@ -54,12 +54,14 @@ class command_center:
 				conn,addr = self.listener.accept()	
 
 				# Recieve a data packet
-				# TODO Create a loop for receiving large data
-				req = conn.recv(1024)
+				req = libcc.recv_json(conn)
+				# Add the IP address to the request
+				req["ip"] = addr
+
 				# Handle the request
 				resp = self.request_handler(req)
 				# Send the response back
-				conn.sendall(resp)
+				libcc.send_json(conn,resp)
 				# Close this connection
 				conn.close()
 
@@ -73,35 +75,16 @@ class command_center:
 	# If a process is not running, it will be relaunched
 	def check_processes():
 		for p in self.processes:
-			if not launcher.running(p):
+			if not libcc.running(p):
 				# TODO Get error code from process and log why
 				# the process was ended
 				# Start the process and update the list
-				p = launcher.start(x)
-
-	## Setup the Unix Socket
-	#
-	# Create a Unix Socket listener
-	def setup_unix_socket(self):
-		# Remove Previoulsy open Unix Socket
-		os.remove(LOCAL_UNIX_SOCKET)
-
-		# Create Socket
-		self.listener = socket.socket(socket.AF_UNIX, 
-				socket.SOCK_STREAM)
-		self.listener.bind(LOCAL_UNIX_SOCKET)
-		# Allo Queuing of 10 connection
-		self.listener.listen(10)
-		# Set a timeout of 5 seconds
-		self.listener.settimeout(5)
-
+				p = libcc.start(x)
 
 # Start the Command center when this script is run indepen
 if __name__ == '__main__':
 	# Create a Command Center Object
 	cc = command_center()
-	# Setup the Unix Socket
-	cc.setup_unix_socket()
 	# Serve forever
 	cc.serve_forever()
 
