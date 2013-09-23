@@ -10,6 +10,7 @@ import struct
 import subprocess
 import os
 import json
+import time
 
 #----------------
 # Constants
@@ -20,6 +21,8 @@ UNIX_SOCKET_PATH = "/tmp/CommandCenterSocket"
 SERVER_TIMEOUT = 5
 CLIENT_TIMEOUT = 5
 SERVER_CONNECTIONS = 10
+CHUNK_SIZE = 4096
+
 
 # List of Daemon Processes
 processes = [
@@ -42,8 +45,9 @@ processes = [
 
 def server_setup(force=False):
 	if force:
-		# Remove Previoulsy open Unix Socket
-		os.remove(UNIX_SOCKET_PATH)
+		if os.path.exists(UNIX_SOCKET_PATH):
+			# Remove Previoulsy open Unix Socket
+			os.remove(UNIX_SOCKET_PATH)
 	
 	# Create Socket
 	s = socket.socket(socket.AF_UNIX, 
@@ -102,6 +106,9 @@ def send_json(s,msg):
 	header = struct.pack("<I",len(data))
 
 	s.sendall(header+data)
+	#if size != len(data)+4:
+	#	print size, len(data)
+
 
 
 ## Figures out the packet length
@@ -114,11 +121,15 @@ def recv_json(s):
 
 	size = struct.unpack("<I",header)[0]
 
-	data = s.recv(size)
+	data = ""
+	while len(data)<size:
+		data += s.recv(CHUNK_SIZE)
 
-	return json.loads(data)
-
-
+	try:
+		return json.loads(data)
+	except ValueError:
+		print "Data Interrupted: Data Recieved: %d, Data Expected %d"%(len(data),size)
+		return {"source":"Error"}
 
 #---------------------------
 # Daemon Launcher Functions

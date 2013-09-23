@@ -63,8 +63,17 @@ class command_center:
 			print "Number of Movies: %d"%len(self.db["movies"])	
 		elif req["source"] in ["webui","cli"]:
 			print "Update from WebUI/CLI"
+			if req["cmd"] == "PLAYPAUSE":
+				pass
+			elif req["cmd"] == "SKIP":
+				pass
+			elif req["cmd"] == "LOAD":
+				pass
+			elif req["cmd"] == "STATUS":
+				pass
+			else:
+				resp["message"] = "Unknown Command"
 	
-		#print req
 	
 		return resp
 
@@ -110,7 +119,7 @@ class command_center:
 				# Start the process and update the list
 				p = libcc.start(p)
 				# Break so 1 process is started at a time
-				break
+				#break
 
 # Start the Command center when this script is run indepen
 if __name__ == '__main__':
