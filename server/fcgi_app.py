@@ -1,3 +1,4 @@
+#!/usr/bin/env python
 
 # Import Modules
 from string import Template

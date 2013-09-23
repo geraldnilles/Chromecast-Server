@@ -1,3 +1,5 @@
+#!/usr/bin/env python
+
 import libcommand_center as libcc
 
 

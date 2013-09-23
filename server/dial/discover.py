@@ -107,8 +107,6 @@ def m_search_request():
 
 		except( socket.timeout):
 			break
-	# print the number of devices
-	print "%d devices found"% len(devices)
 	return devices
 	
 

@@ -8,7 +8,8 @@
 import socket
 import struct
 import subprocess
-
+import os
+import json
 
 #----------------
 # Constants
@@ -23,8 +24,12 @@ SERVER_CONNECTIONS = 10
 # List of Daemon Processes
 processes = [
 		{
-			"name":"test",
-			"cmd":["C:\Python2.7\python.exe","test.py"],
+			"name":"Media Scanner",
+			"cmd":["./media_scanner.py"],
+			"proc":None
+		},{
+			"name":"Device Discoverer",
+			"cmd":["./discoverer.py"],
 			"proc":None
 		}	
 	]
@@ -49,6 +54,8 @@ def server_setup(force=False):
 	s.listen(SERVER_CONNECTIONS)
 	# Set a timeout of 5 seconds
 	s.settimeout(SERVER_TIMEOUT)
+
+	return s
 
 
 #--------------
@@ -132,14 +139,17 @@ def running(process):
 
 # Starts the process
 def start(process):
+	print "Starting Process %s"%process["name"]
 	# Launch process
-	p = subprocess.Popen(process["cmd"])
+	p = subprocess.Popen(process["cmd"],stdin=subprocess.PIPE)
 	# Add the Popen object to the process object
 	process["proc"] = p
 
 
-def teminate(process):
+def terminate(process):
+	print "Terminating %s"%process["name"]
 	process["proc"].terminate()
 
 def kill(process):
+	print "Killing %s"%process["name"]
 	process["proc"].kill()

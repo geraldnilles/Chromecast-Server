@@ -1,7 +1,8 @@
-
+#!/usr/bin/env python
 
 import os
 import libcommand_center as libcc
+import time
 
 #-----------------
 # Constants 
@@ -47,7 +48,7 @@ def scan_movies(db):
 		# Create a new entry
 		entry = {}
 		entry["path"] = path
-		entry["title"] = path.rsplit(".",1)[0]
+		entry["title"] = fn.rsplit(".",1)[0]
 
 		# Add entry to the database
 		db.append(entry)
@@ -65,6 +66,7 @@ def loop_forever():
 	while(1):
 		# Create an Empty Database object
 		db = {
+			"source":"scanner",
 			"movies":[],
 			"tv":[],
 			"music":[],
@@ -87,10 +89,11 @@ def loop_forever():
 		ret = libcc.client_send_recv(db)
 
 		# Wait 10 minutes before the next scan
-		time.sleep(60*10)
+		time.sleep(60)
 		
 
 	return -1
 
 if __name__ == "__main__":
-	return loop_forever()
+	loop_forever()
+
