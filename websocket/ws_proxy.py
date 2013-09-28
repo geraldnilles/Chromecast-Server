@@ -9,12 +9,17 @@
 #--------------------
 # Imported Modules
 #-------------------
-import socket,re,hashlib,base64,struct,os
+import asyncore,socket,re,hashlib,base64,struct,os
 
 #-----------------
 # Constants
 #-----------------
+# This is the WS port used by the Chomecast to connect to this server
 CHROMECAST_IP_PORT = ("",50505)
+
+# This is the Unix Socket name used by other processes to connect to this proxy
+# When multiple devices are connected at the same time, a number will be added
+# to the end of this name
 LOCAL_UNIX_SOCKET = "/tmp/WSUnixSocket"
 
 HANDSHAKE_RESPONSE_TMPL="""HTTP/1.1 101 Switching Protocols\r
@@ -24,22 +29,6 @@ Sec-WebSocket-Accept: {0}\r
 \r
 """
 
-
-#----------------------
-# WebSocket Functions
-#----------------------
-
-def setup_chromecast_listener():
-	s = socket.socket(socket.AF_INET,socket.SOCK_STREAM)
-	s.bind(CHROMECAST_IP_PORT)
-	s.listen(1)
-	return s
-
-def wait_for_chromecast(sock,timeout=None):
-	print "Waiting for a Chomecast to Connect..."
-	conn,addr = sock.accept()
-	print "Connection Established with ",addr
-	return conn
 
 
 def complete_handshake(conn):
@@ -207,7 +196,58 @@ def serve_forever():
 	ws_list.shutdown(socket.SHUT_RDWR)
 	ws_list.close()
 
+## WebSocket Server
+#
+# This class waits for WS connections to come from Chromecast devices.  Once a
+# connection is created, a WS_Handler is created to maintain this connection
+class WS_Server(asyncore.dispatcher):
+	def __init__(self):
+		asyncore.dispatcher.__init__(self)
+		self.create_socket(socket.AF_INET, socket.SOCK_STREAM)
+		self.bind(CHROMECAST_IP_PORT)
+		self.listen(5)
+		print "Listening to port",CHROMECAST_IP_PORT
+	
+	def handle_accept(self):
+		sock, addr = self.accept()
+		print "Connection Attemp from", addr
+		ws_sock = WS_Handler(sock)
+		ux_sock = UX_Handler(sock)	
+
+
+class UX_Handler(asyncor.dispatcher):
+	def __init__(self,sock):
+		asyncore.dispatcher.__init__(self)
+		self.ws_proxy = sock
+		self.create_socket(socket.AF_UNIX, socket.SOCK_STREAM)
+		self.bind(UNIX_LOCAL_PORT)
+
+## Websocket Handler
+#
+# Once a Websocket device connects, this will handle the connection.
+class WS_Handler(asyncore.dispatcher):
+	def __init__(self,sock):
+		asyncore.dispatcher.__init__(self,sock)
+		self.state = ""
+
+	def handle_write(self):
+		pass
+
+	def handle_read(self):
+		# Recv a chunk of data
+		chunk = self.recv(1024)
+		# Check if this ia a Handshake request
+		if(self.is_handshake(chunk)):
+			# Complete the handshake
+			resp = self.complete_handshake(chunk)
+			self.send(resp)
+			return
+
+		
+		
+
 
 if __name__ == "__main__":
-	serve_forever()
+	server = WS_Server()
+	asyncore.loop()	
 
