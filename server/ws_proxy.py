@@ -9,7 +9,11 @@
 #--------------------
 # Imported Modules
 #-------------------
-import asyncore,socket,re,hashlib,base64,struct,os
+import asyncore,socket
+import re,hashlib,base64,struct
+import os,time
+import json
+import libcommand_center as libcc
 
 #-----------------
 # Constants
@@ -31,171 +35,6 @@ Sec-WebSocket-Accept: {0}\r
 
 
 
-def complete_handshake(conn):
-	# Grap the WebSocket Handshake Request
-	data = conn.recv(1024)
-	#print data
-	# Grab the WS Key using a RegEx (TODO Make this case-insensitive)
-	m = re.search("Sec-WebSocket-Key: (\S*)",data)
-	key = ""
-	if m:
-		key =  m.group(1)
-		print repr(key)
-	else:
-		print "Not a Handshake"
-		return None
-	resp_key = base64.b64encode(hashlib.sha1(
-			key+"258EAFA5-E914-47DA-95CA-C5AB0DC85B11").digest())
-
-	resp =  HANDSHAKE_RESPONSE_TMPL.format(resp_key)
-	print resp
-
-	conn.sendall(resp)
-	return 1
-
-def decode_ws_packet(p):
-	# Ignore Byte 0 for new (assume its all text)
-	# Convert Byte 1 to an unsigned char
-	size = struct.unpack("<B",p[1])[0]
-	# Remove the first bit (We will assume its masked)
-	size = size - 0x80
-	index = 2
-	if size == 126:
-		# Convert Bytes 2 and 3 to an unsigned int
-		index = 4
-		size = struct.unpack("<H",p[2:3])[0]
-	elif size == 127:
-		# Convert Bytes 2 to 9 into an unsigned long
-		index = 10
-		size = struct.unpack("<Q",p[2:9])[0]
-	
-	# Grab the Mask
-	mask = p[index:index+4]
-	# Grab the Payload
-	payload = p[index+4:]
-
-	# Unmask the payload
-	decoded = ""
-	for i in range(size):
-		j = i%4
-		# XOR the mask and the payload byte by byte
-		decoded += chr(ord(mask[j])^ord(payload[i]))
-	return decoded
-
-def encode_ws_packet(string):
-	# Send a single text packet
-	packet = "\x81"
-	# Always Use the extended packet
-	packet += struct.pack('<B',len(string))
-	# Payload
-	packet += string
-	
-	#print packet.encode("hex")
-	return packet
-
-def service_ws(ws_conn):
-	try:
-		# Reset the WebSocket timeout to We dont want to waste 
-		# time waiting for unexpected WS packets
-		ws_conn.settimeout(0)
-		data = ws_conn.recv(1024)
-		# TODO Identify the Packet Type
-		# For now, just print the raw data
-		print repr(data)
-		# If the WS returns an empty frame, the WebApp was 
-		# closed.
-		if data == "":
-			print "WS Connection Closed by WebApp"
-			# Close the Connections
-			return False
-	except socket.error as msg:
-		# If Error is due to no data being ready, ignore
-		if msg.errno == 10035:
-			pass
-		# Temporarily Unavaiable.  Not sure what this means but i'll
-		# ignore it for now
-		if msg.errno == 11:
-			pass
-		else:
-			# If the error is different, exit the loop
-			print repr(msg)
-			return False
-	
-	return True
-
-#---------------------
-# IPC Functions
-#---------------------
-
-## Create the IPC Port
-#
-# THis socket will be used to collect commmands from other processes on this
-# machine.  For testing purposes, this will be a IP address.  In the future,
-# it will use Unix sockets.
-def setup_ipc_listener():
-	s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-	s.bind(LOCAL_UNIX_SOCKET)
-	s.listen(1)
-	s.settimeout(5)
-	return s
-
-def service_ipc(ipc_list,ws_conn):
-	ipc_conn, addr = ipc_list.accept()
-	# Give the WebSocket 10 secondds to respond
-	ws_conn.settimeout(5)
-	# Receive data chunk from IPC
-	data = ipc_conn.recv(1024)
-	if data == "CLOSE":
-		return True
-	# TODO Check that it is the entire packet
-	# Encode and Send data through WebSocket Connection
-	ws_conn.sendall(encode_ws_packet(data))
-	# Receive and decode Response
-	resp = decode_ws_packet(ws_conn.recv(1024))
-	# Send Response back to IPC connection
-	ipc_conn.sendall(resp)
-
-
-def serve_forever():
-	# Create a WebSocket Listener
-	ws_list = setup_chromecast_listener()
-	# WS Loop
-	while 1:
-		try:
-			# Create a Connection with the Browser via WebSockets 
-			ws_conn = wait_for_chromecast(ws_list)
-			# Perform WS handshake
-			complete_handshake(ws_conn)
-
-			# Create an IPC listener
-			ipc_list = setup_ipc_listener()
-		except KeyboardInterrupt:
-			break
-
-		# IPC Loop
-		while 1:
-			# Wait 5 seconds for an IPC command
-			try:
-				# Wait for a IPC connect and service it
-				service_ipc(ipc_list,ws_conn)
-			
-			except socket.timeout as msg:
-				# If it does timeout, service the WS. 
-				if not service_ws(ws_conn):
-					# break WS Server returns false 
-					break
-			except KeyboardInterrupt:
-				break
-	
-	
-		ws_conn.close()
-		os.remove(LOCAL_UNIX_SOCKET)
-		ipc_list.shutdown(socket.SHUT_RDWR)
-		ipc_list.close()
-
-	ws_list.shutdown(socket.SHUT_RDWR)
-	ws_list.close()
-
 ## WebSocket Server
 #
 # This class waits for WS connections to come from Chromecast devices.  Once a
@@ -206,21 +45,63 @@ class WS_Server(asyncore.dispatcher):
 		self.create_socket(socket.AF_INET, socket.SOCK_STREAM)
 		self.bind(CHROMECAST_IP_PORT)
 		self.listen(5)
-		print "Listening to port",CHROMECAST_IP_PORT
+
+		# Create a Unix Socket Server
+		self.ux_sock = UX_Server()
+
+		print "WS Server Created: ",CHROMECAST_IP_PORT
 	
 	def handle_accept(self):
 		sock, addr = self.accept()
 		print "Connection Attemp from", addr
 		ws_sock = WS_Handler(sock)
-		ux_sock = UX_Handler(sock)	
 
+		self.ux_sock.add_ws(addr, ws_sock)
 
-class UX_Handler(asyncor.dispatcher):
-	def __init__(self,sock):
+## Unix Socket Server
+#
+# This class waits for Unix socket connections.  When a connection occurs,
+# it forwards the packet to the appropriate WS socket
+class UX_Server(asyncore.dispatcher):
+	def __init__(self):
 		asyncore.dispatcher.__init__(self)
-		self.ws_proxy = sock
+		
+		# Create a dict containing Open Websockets
+		self.WSs = {}
+
 		self.create_socket(socket.AF_UNIX, socket.SOCK_STREAM)
-		self.bind(UNIX_LOCAL_PORT)
+		self.bind(LOCAL_UNIX_SOCKET)
+		self.listen(5)
+
+		print "Unix Socket Server started"
+
+
+	def add_ws(self,addr,ws_sock):
+		self.WSs[addr[0]] = ws_sock
+		print "List of registered WS Devices"
+		for x in self.WSs:
+			print x
+
+	def handle_accept(self):
+		# Accept the Unix Socket Connection
+		ux_sock, addr = self.accept()
+		# Recive the request JSON object
+		req = libcc.recv_json(ux_sock)	
+		# Check if WS connection exists with that IP addr
+		if req["addr"] in self.WSs:
+			# Forward to Chromecast Connection
+			ws_sock = self.WSs[req["addr"]]
+			ws_sock.send_msg(req)
+			resp = ws_sock.recv_msg()
+
+		else:
+			resp ={	"source":"ws_proxy",
+				"error":"No WS Connection Exists with %s"%addr
+				}
+
+		libcc.send_json(ux_sock, resp)
+		ux_sock.close()
+
 
 ## Websocket Handler
 #
@@ -229,21 +110,133 @@ class WS_Handler(asyncore.dispatcher):
 	def __init__(self,sock):
 		asyncore.dispatcher.__init__(self,sock)
 		self.state = ""
+		self.write_buffer = ""
+		self.read_buffer = ""
+		self.inbox = []
+	
+	def handle_connect(self):
+		print "WS Connection Created"
+
+	def handle_close(self):
+		print "WS Connection Closed"
+		self.write_buffer = ""
+		self.read_buffer = ""
+		self.close()
+	
+	def writable(self):
+		if len(self.write_buffer) > 0:
+			return True
+		else:
+			return False
 
 	def handle_write(self):
-		pass
+		sent = self.send(self.write_buffer)
+		self.write_buffer = self.write_buffer[sent:]
 
 	def handle_read(self):
 		# Recv a chunk of data
-		chunk = self.recv(1024)
-		# Check if this ia a Handshake request
-		if(self.is_handshake(chunk)):
-			# Complete the handshake
-			resp = self.complete_handshake(chunk)
-			self.send(resp)
+		self.read_buffer += self.recv(1024)
+		if len(self.read_buffer) == 0:
 			return
+		# Attempt to complete a WebSocket Handshake
+		if( self.ws_handshake()):
+			# If it was a handshake, clear the buffer and return
+			self.read_buffer = ""
+		else:
+			data = self.ws_decode()
+			print data
+			if data != False:
+				try: 
+					obj = json.loads(data)
+					print obj
+					self.inbox.append(obj)
+					
+				except:
+					print "Issue with WS Read Buffer. Clearing it out"
+					self.read_buffer = ""
 
-		
+	def ws_handshake(self):
+		# Get the read buffer
+		data = self.read_buffer
+		#print data
+		# Grab the WS Key using a RegEx (TODO Make this case-insensitive)
+		m = re.search("Sec-WebSocket-Key: (\S*)",data)
+		key = ""
+		if m:
+			key =  m.group(1)
+			print repr(key)
+		else:
+			print "Not a Handshake"
+			return False
+		resp_key = base64.b64encode(hashlib.sha1(
+		key+"258EAFA5-E914-47DA-95CA-C5AB0DC85B11").digest())
+
+		resp =  HANDSHAKE_RESPONSE_TMPL.format(resp_key)
+		print resp
+
+		self.write_buffer = resp
+		return True
+
+	
+	def ws_decode(self):
+		p = self.read_buffer
+		# Ignore Byte 0 for new (assume its all text)
+		# Convert Byte 1 to an unsigned char
+		size = struct.unpack("<B",p[1])[0]
+		# Remove the first bit (We will assume its masked)
+		size = size - 0x80
+		index = 2
+		if size == 126:
+			# Convert Bytes 2 and 3 to an unsigned int
+			index = 4
+			size = struct.unpack("<H",p[2:3])[0]
+		elif size == 127:
+			# Convert Bytes 2 to 9 into an unsigned long
+			index = 10
+			size = struct.unpack("<Q",p[2:9])[0]
+
+		# Grab the Mask
+		mask = p[index:index+4]
+		# Grab the Payload
+		payload = p[index+4:]
+
+		if len(payload) < size:
+			return False
+
+		# Unmask the payload
+		decoded = ""
+		for i in range(size):
+			j = i%4
+			# XOR the mask and the payload byte by byte
+			decoded += chr(ord(mask[j])^ord(payload[i]))
+		self.read_buffer = self.read_buffer[index+4+size:]
+		return decoded	
+
+	def ws_encode(self,data):
+		# Send a single text packet
+		packet = "\x81"
+		# Always Use the extended packet
+		packet += struct.pack('<B',len(data))
+		# Payload
+		packet += data
+
+		#print packet.encode("hex")
+		return packet
+	
+	
+	def recv_msg(self,attempts = 10,t=0.1):
+		if len(self.inbox) > 0:
+			return self.inbox.pop(0)
+		elif attempts > 0:
+			time.sleep(t)
+			return self.recv_msg(attempts - 1)
+		else:
+			return {"error":"timeout"}
+
+	def send_msg(self,msg):
+		data = json.dumps(msg)
+		pkt = self.ws_encode(data)
+		self.write_buffer += pkt
 		
 
 

@@ -7,33 +7,24 @@
 # CLI interface.
 #-------------------
 
-
-import socket,json
+import libcommand_center as libcc
 
 #------------------
 # Constants
 #-----------------
 
-LOCAL_UNIX_SOCKET = "/tmp/WSUnixSocket"
+WS_UNIX_SOCKET = "/tmp/WSUnixSocket"
 
 
-## Send Message to WebSocket
-def send_message(data):
-	s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-	s.connect(LOCAL_UNIX_SOCKET)
-	s.settimeout(5)
-
-	s.sendall(data)
-
-	return s.recv(1024)
 
 ## Play/Pause 
 def play_pause():
 	obj = {
-		"cmd":"PLAYPAUSE"
+		"cmd":"PLAYPAUSE",
+		"addr":"192.168.0.103"
 		}
 
-	resp = send_message(json.dumps(obj))
+	resp = libcc.client_send_recv(obj,WS_UNIX_SOCKET)
 	return resp
 
 ## Load Path into the Player
@@ -42,7 +33,7 @@ def load(source):
 		"cmd":"LOAD",
 		"source":source
 	}
-	resp = send_message(json.dumps(obj))
+	resp = libcc.client_send_recv(obj,WS_UNIX_SOCKET)
 	return resp
 
 ## Get Status from Player
@@ -50,7 +41,7 @@ def status():
 	obj = {
 		"cmd":"STATUS"
 	}
-	resp = send_message(json.dumps(obj))
+	resp = libcc.client_send_recv(obj,WS_UNIX_SOCKET)
 	print resp
 	return json.loads(resp)
 
@@ -62,7 +53,7 @@ def skip(percent):
 		"cmd":"SKIP",
 		"percent":percent
 	}
-	resp = send_message(json.dumps(obj))
+	resp = libcc.client_send_recv(obj,WS_UNIX_SOCKET)
 	return resp
 
 ## CLI argument Parser
@@ -79,7 +70,7 @@ if __name__ == "__main__":
 	if args.source:
 		load(args.source)
 	elif args.play_pause:
-		play_pause()
+		print play_pause()
 	elif args.skip:
 		skip(args.skip)
 	elif args.status:

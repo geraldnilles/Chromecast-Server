@@ -71,6 +71,13 @@ function ready(){
 		}
 	}
 
+	function generic_response(){
+		var obj = {};
+		obj["source"] = "Chromecast";
+		obj["status"] = "OK";
+		return obj;
+	}
+
 	function play_pause(video){
 		if( video.paused){
 			video.play();
@@ -78,12 +85,12 @@ function ready(){
 			video.pause();
 		}
 
-		connection.send("OK")
+		connection.send(JSON.stringify(generic_response()));
 	}
 
 	function skip(video,obj){
 		video.currentTime = video.duration*obj["percent"]/100
-		connection.send("OK")
+		connection.send(JSON.stringify(generic_response()));
 	}
 
 	function get_status(video){
@@ -96,7 +103,7 @@ function ready(){
 
 	function load(video,obj){
 		video.src = obj["src"];
-		connection.send("OK");
+		connection.send(JSON.stringify(generic_response()));
 	}
 
 	// Check the WebSocket Connection every 10 seconds

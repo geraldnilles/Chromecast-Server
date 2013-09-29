@@ -74,13 +74,13 @@ def server_setup(force=False):
 #
 # @param msg - A JSOn Object
 # @return - A JSON Object response form the command center.
-def client_send_recv(msg):
+def client_send_recv(msg,path=UNIX_SOCKET_PATH):
 	s = socket.socket(socket.AF_UNIX,
 			socket.SOCK_STREAM)
 
 	try:
 		# Connect to the Socket
-		s.connect(UNIX_SOCKET_PATH)
+		s.connect(path)
 
 		# Convert JSON object and send over TCP
 		send_json(s,msg)
