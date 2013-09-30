@@ -131,6 +131,29 @@ def recv_json(s):
 		print "Data Interrupted: Data Recieved: %d, Data Expected %d"%(len(data),size)
 		return {"source":"Error"}
 
+
+def pkt_to_json(pkt):
+	if len(pkt) < 4:
+		return (None, 0 )
+	header = pkt[0:4]
+	size = struct.unpack("<I",header)[0]
+
+	if len(pkt) < size+4:
+		return (None,0)
+	
+	payload = pkt[4:4+size]	
+	obj = json.loads(payload)
+
+	return (obj, 4+size)	
+
+def json_to_pkt(obj):
+	pkt = json.dumps(obj)
+
+	header = struct.pack("<I",len(pkt))
+
+	pkt = header+pkt
+	return pkt
+
 #---------------------------
 # Daemon Launcher Functions
 #----------------------------
