@@ -61,7 +61,7 @@ class WS_Server(asyncore.dispatcher):
 		# Create a WS handler from the connection socket
 		ws_sock = WS_Handler(sock)
 		# Add this new socket to the Command Center Database
-		self.command_center.add_websocket(addr, ws_sock)
+		self.command_center.add_websocket(addr[0], ws_sock)
 
 
 

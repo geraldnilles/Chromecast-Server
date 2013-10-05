@@ -57,10 +57,11 @@ def app_status(device,app_id):
 	print r.status,r.reason
 
 ## Kill an App
-def kill_app(device,app_id):
+def exit_app(device,app_id):
+	print device["ip"],device["port"],device["app_path"],app_id
 	# Create an HTTP DELETE request using the App Path
 	# NOTE: Not tested.  If this doesnt work, you may need to use the app's instance url
-	conn = httplib.HTTPConnection(device["ip"],device["port"])
+	conn = httplib.HTTPConnection(str(device["ip"]),int(device["port"]))
 	conn.request("DELETE",device["app_path"]+app_id)
 	r = conn.getresponse()
 	print r.status,r.reason,r.read()

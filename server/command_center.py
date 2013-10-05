@@ -8,6 +8,7 @@ import ws_proxy
 from socket import timeout as TIMEOUT_ERROR
 import os.path
 import time
+import dial.rest
 
 #--------------
 # Constants
@@ -54,7 +55,8 @@ class Update_Handler(asyncore.dispatcher):
 			"message":"OK"
 			}
 		if req["source"] == "discoverer":
-			self.db["devices"] = req["devices"]
+			for d in req["devices"]:
+				self.db["devices"][d["ip"]] = d	
 		elif req["source"] == "converter":
 			if "progress" in req:
 				pass
@@ -68,7 +70,14 @@ class Update_Handler(asyncore.dispatcher):
 			# a Chromecast Devices
 			if "addr" in req:
 				# Forward  Request to WebSocket Server
-				resp = self.command_center.websocket_communicate(req)
+				device = self.db["devices"][req["addr"]]
+				app_id="e7689337-7a7a-4640-a05a-5dd2bd7699f9_1"
+				if req["cmd"] == "launch":
+					dial.rest.launch_app( device, app_id)
+				elif req["cmd"] == "exit":
+					dial.rest.exit_app(device,app_id)
+				else:
+					resp["message"] = "CLI Error - Bad CMD"
 			elif "cmd" not in req:
 				resp["message"] = "CLI Error - No Comand Given"
 			elif req["cmd"] == "movies":
