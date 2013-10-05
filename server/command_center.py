@@ -2,8 +2,12 @@
 
 
 import libcommand_center as libcc
-
+import asyncore
+import socket
+import ws_proxy
 from socket import timeout as TIMEOUT_ERROR
+import os.path
+import time
 
 #--------------
 # Constants
@@ -20,7 +24,7 @@ class Update_Handler(asyncore.dispatcher):
 		self.db = cc.db
 
 	def writable(self):
-		if len(write_buffer) > 0:
+		if len(self.write_buffer) > 0:
 			return True
 		else:
 			return False
@@ -32,7 +36,7 @@ class Update_Handler(asyncore.dispatcher):
 	
 	def handle_read(self):
 		# Add new data to the read buffer
-		self.read_buffer += self.read(1024)
+		self.read_buffer += self.recv(1024)
 		# Attempt to decode the packet
 		req, size = libcc.pkt_to_json(self.read_buffer)
 		# If The Request oject is None, wait for more data
@@ -48,7 +52,7 @@ class Update_Handler(asyncore.dispatcher):
 		resp = {
 			"source":"command_center",
 			"message":"OK"
-		}
+			}
 		if req["source"] == "discoverer":
 			self.db["devices"] = req["devices"]
 		elif req["source"] == "converter":
@@ -59,14 +63,22 @@ class Update_Handler(asyncore.dispatcher):
 				pass
 				# Remove Item from Queue
 		elif req["source"] in ["cli","webui"]:
+			print "CLI Command"
 			# If an address is in the request, it is intneded for
 			# a Chromecast Devices
 			if "addr" in req:
 				# Forward  Request to WebSocket Server
 				resp = self.command_center.websocket_communicate(req)
+			elif "cmd" not in req:
+				resp["message"] = "CLI Error - No Comand Given"
+			elif req["cmd"] == "movies":
+				print "Movies"
+				resp["movies"] = self.db["movies"]
+			elif req["cmd"] == "devices":
+				resp["devices"] = self.db["devices"]
 			else:
-				# If not address, it will be randome requests
-				# to control the database or processes
+				resp["message"] = "CLI Error - Bad Command"				
+
 		elif req["source"] == "scanner":
 			# Overwrite the list of movies/tv on the database
 			self.db["movies"] = req["movies"]
@@ -83,26 +95,39 @@ class Update_Handler(asyncore.dispatcher):
 # for Unix Socket connections.  It also creates a WebSocket Server object
 class Command_Center(asyncore.dispatcher):
 	def __init__(self):
+		# Init the generic dispatcher
 		asyncore.dispatcher.__init__(self)
-		self.create_socket(socket.AF_INET, socket.SOCK_STREAM)
-		self.bind(libcc.PROCESS_UNIX_SOCKET)
+
+		if(os.path.exists(libcc.UNIX_SOCKET_PATH)):
+			os.remove(libcc.UNIX_SOCKET_PATH)
+
+		# Create a Unix socket to listen to
+		self.create_socket(socket.AF_UNIX, socket.SOCK_STREAM)
+		self.bind(libcc.UNIX_SOCKET_PATH)
 		self.listen(5)
 
+		# Create a JSON database in Memory to keep track of all of the
+		# sub processes
 		self.db = {
 			"devices":{},	# Dict of Chromecast Devices found
 			"movies":[],	# List of Movies On Server
 			"tv":[],	# List of TV series on Server
 			"transcode_queue":[], # List of Videos to Transcode
-			"websockets":{}, # Dict of Open WebSockets
+			"websockets":{}, # Dict of currently Open WebSockets
 			}
 
+		# Start the Websocket Proxy
 		self.start_websocket_proxy()
 
+	# This method is called whenever a socket connection is made
 	def handle_accept(self):
+		# Create a handler object to deal with the socket
 		sock,addr = self.accept()
 		Update_Handler(sock,self)
 
+	# Write the Memory database to disk
 	def _write_db(self):
+		# We will do nothing for now
 		pass	
 
 	## Add a WebSocket to the Database
@@ -111,6 +136,13 @@ class Command_Center(asyncore.dispatcher):
 	# instance to the database
 	def add_websocket(self,addr,ws):
 		self.db["websockets"][addr] = ws
+
+	## Remove a WebSocket from the Database
+	#
+	# When a Websocket Proxy is closed, this should be called to remove
+	# it from the command center database
+	def remove_websocket(self,addr):
+		del self.db["websockets"][addr]
 
 	## Starts the WebSocket Proxy Server
 	def start_websocket_proxy(self):
@@ -141,10 +173,23 @@ if __name__ == '__main__':
 	ps = libcc.get_process_list()
 	
 	# Server Forever
+	watchdog_length = 10
+	watchdog_time = time.time() + watchdog_length 
 	while(1):
-		# Timeout after 10 seconds
-		asyncore.loop(10)
-		libcc.check_processes(ps)
-		cc._write_db()
+		# Timeout after at most 10 seconds
+		asyncore.loop(timeout=1,count=10)
+		# Verify that the timeout is at least 10 seconds
+		if time.time() > watchdog_time:
+			# Update the watchdog
+			watchdog_time = time.time()+watchdog_length
+			# Check processes and write to db
+			libcc.check_processes(ps)
+			cc._write_db()
+			# Print DB stats
+			
+			print "Current DB stats:"
+			for key in cc.db:
+				print "\t"+key+": "+str(len(cc.db[key]))
+
 
 

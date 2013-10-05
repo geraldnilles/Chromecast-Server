@@ -86,7 +86,7 @@ def loop_forever():
 		scan_pictures(db["pictures"])
 
 		# Send database to the command cetner
-		ret = libcc.client_send_recv(db)
+		ret = libcc.send_recv(db)
 
 		# Wait 10 minutes before the next scan
 		time.sleep(60)

@@ -37,7 +37,6 @@ processes = [
 		}	
 	]
 
-
 #--------------
 # Socket Client Functions
 #---------------
@@ -75,7 +74,7 @@ def send_recv(msg,path=UNIX_SOCKET_PATH):
 		# Read Loop
 		pkt = ""
 		while(1):
-			pkt += self.read(1024)
+			pkt += s.recv(1024)
 			# Attempt to decode the packet
 			msg,size = pkt_to_json(pkt)
 			# If a proper Msg was created, return
@@ -94,19 +93,26 @@ def send_recv(msg,path=UNIX_SOCKET_PATH):
 # This function converts a n IPC packet into a JSON object.  The first 4 bytes
 # contains the totle packet size.  
 def pkt_to_json(pkt):
+	# Grab the pkt length from the first 4 bytes
 	if len(pkt) < 4:
 		return (None, 0 )
 	header = pkt[0:4]
 	size = struct.unpack("<I",header)[0]
 
+	# If the packet is shorter than the expected length, return None,0
 	if len(pkt) < size+4:
-		return (None,0)
-	
+		return (None,0 )
+
+	# Convert the packet to JSON object
 	payload = pkt[4:4+size]	
 	obj = json.loads(payload)
+	# Return how much of the string buffer was used
+	return (obj,size+4)	
 
-	return (obj, 4+size)	
-
+## Convert JSON object to an IPC packet
+#
+# Stringify's the JSON object and adds a 4byte unsigned interger to the 
+# beginning of the packet to idenfiy the length
 def json_to_pkt(obj):
 	pkt = json.dumps(obj)
 
@@ -161,3 +167,4 @@ def terminate(process):
 def kill(process):
 	print "Killing %s"%process["name"]
 	process["proc"].kill()
+
