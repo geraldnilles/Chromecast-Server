@@ -37,30 +37,6 @@ processes = [
 		}	
 	]
 
-#-----------------
-# Socket Server Functions
-#
-# This should only be used by the command center
-#-----------------
-
-def server_setup(force=False):
-	if force:
-		if os.path.exists(UNIX_SOCKET_PATH):
-			# Remove Previoulsy open Unix Socket
-			os.remove(UNIX_SOCKET_PATH)
-	
-	# Create Socket
-	s = socket.socket(socket.AF_UNIX, 
-			socket.SOCK_STREAM)
-
-	s.bind(UNIX_SOCKET_PATH)
-	# Allo Queuing of 10 connection
-	s.listen(SERVER_CONNECTIONS)
-	# Set a timeout of 5 seconds
-	s.settimeout(SERVER_TIMEOUT)
-
-	return s
-
 
 #--------------
 # Socket Client Functions
@@ -74,7 +50,7 @@ def server_setup(force=False):
 #
 # @param msg - A JSOn Object
 # @return - A JSON Object response form the command center.
-def client_send_recv(msg,path=UNIX_SOCKET_PATH):
+def send_recv(msg,path=UNIX_SOCKET_PATH):
 	s = socket.socket(socket.AF_UNIX,
 			socket.SOCK_STREAM)
 
@@ -82,56 +58,41 @@ def client_send_recv(msg,path=UNIX_SOCKET_PATH):
 		# Connect to the Socket
 		s.connect(path)
 
-		# Convert JSON object and send over TCP
-		send_json(s,msg)
+		# Convert JSON object to a packet
+		pkt = json_to_pkt(msg)
+		# Send message to Command Center
+		while(1):
+			# Send part (if not all) of the packet
+			sent = s.send(pkt)
+			if sent >= len(pkt):
+				# If the whole packet was sent, break the loop
+				break
+			else:
+				# If More is left, discard the sent characters
+				# and try again
+				pkt = pkt[sent:]
 
-		# Recieve JSON object from TCP
-		return recv_json(s)
+		# Read Loop
+		pkt = ""
+		while(1):
+			pkt += self.read(1024)
+			# Attempt to decode the packet
+			msg,size = pkt_to_json(pkt)
+			# If a proper Msg was created, return
+			if msg != None:
+				return msg
+			# If msg == none, continue the loop
+				
+
 
 
 	except socket.timeout:
 		return {"error":"Unix Socket Timeout"}
  
-## Prepare the JSON string for TCP
+## Convert IPC Packet to JSON object
 #
-# Since TCP doesnt communicate packet length, We will add 4 bytes to the 
-# beginning of the packet.  This will be an unsigned integer containing the 
-# length of the packet.
-def send_json(s,msg):
-	data = json.dumps(msg)
-	if type(data) != str:
-		# If not a string, create en empty JSOn object to send
-		return pack_string("{}")
-	
-	header = struct.pack("<I",len(data))
-
-	s.sendall(header+data)
-	#if size != len(data)+4:
-	#	print size, len(data)
-
-
-
-## Figures out the packet length
-#
-# Uses the first 4 bytes of the packet to determine the packet length.  
-# From there, we know how many more bytes to recieve
-def recv_json(s):
-
-	header = s.recv(4)
-
-	size = struct.unpack("<I",header)[0]
-
-	data = ""
-	while len(data)<size:
-		data += s.recv(CHUNK_SIZE)
-
-	try:
-		return json.loads(data)
-	except ValueError:
-		print "Data Interrupted: Data Recieved: %d, Data Expected %d"%(len(data),size)
-		return {"source":"Error"}
-
-
+# This function converts a n IPC packet into a JSON object.  The first 4 bytes
+# contains the totle packet size.  
 def pkt_to_json(pkt):
 	if len(pkt) < 4:
 		return (None, 0 )
@@ -160,6 +121,19 @@ def json_to_pkt(obj):
 
 def get_process_list():
 	return processes
+
+## Check Processes
+#
+# This will check the given list of processes and start the ones that have not
+# started yet.
+def check_processes(ps):
+	for p in ps:
+		if not running(p):
+			start(p)
+			# Return now if you only want to start 1 process at a 
+			# time.  Otherwise, all subprocesses will be started
+			# simultaniously
+			# return 
 
 
 # Checks if a process is running

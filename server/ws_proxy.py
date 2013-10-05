@@ -40,67 +40,29 @@ Sec-WebSocket-Accept: {0}\r
 # This class waits for WS connections to come from Chromecast devices.  Once a
 # connection is created, a WS_Handler is created to maintain this connection
 class WS_Server(asyncore.dispatcher):
-	def __init__(self):
+	## Constructor
+	#
+	# @param cc - The Command Center object
+	def __init__(self,cc):
+		# Create a TCP socket and listen to the WS port
 		asyncore.dispatcher.__init__(self)
 		self.create_socket(socket.AF_INET, socket.SOCK_STREAM)
 		self.bind(CHROMECAST_IP_PORT)
 		self.listen(5)
 
-		# Create a Unix Socket Server
-		self.ux_sock = UX_Server()
+		# Save the Command Center socket in this object
+		self.command_center = cc
 
 		print "WS Server Created: ",CHROMECAST_IP_PORT
 	
 	def handle_accept(self):
 		sock, addr = self.accept()
 		print "Connection Attemp from", addr
+		# Create a WS handler from the connection socket
 		ws_sock = WS_Handler(sock)
+		# Add this new socket to the Command Center Database
+		self.command_center.add_websocket(addr, ws_sock)
 
-		self.ux_sock.add_ws(addr, ws_sock)
-
-## Unix Socket Server
-#
-# This class waits for Unix socket connections.  When a connection occurs,
-# it forwards the packet to the appropriate WS socket
-class UX_Server(asyncore.dispatcher):
-	def __init__(self):
-		asyncore.dispatcher.__init__(self)
-		
-		# Create a dict containing Open Websockets
-		self.WSs = {}
-
-		self.create_socket(socket.AF_UNIX, socket.SOCK_STREAM)
-		self.bind(LOCAL_UNIX_SOCKET)
-		self.listen(5)
-
-		print "Unix Socket Server started"
-
-
-	def add_ws(self,addr,ws_sock):
-		self.WSs[addr[0]] = ws_sock
-		print "List of registered WS Devices"
-		for x in self.WSs:
-			print x
-
-	def handle_accept(self):
-		# Accept the Unix Socket Connection
-		ux_sock, addr = self.accept()
-		# Recive the request JSON object
-		req = libcc.recv_json(ux_sock)	
-		# Check if WS connection exists with that IP addr
-		if req["addr"] in self.WSs:
-			# Forward to Chromecast Connection
-			ws_sock = self.WSs[req["addr"]]
-			ws_sock.send_msg(req)
-			resp = ws_sock.recv_msg()
-
-		else:
-			resp ={	"source":"ws_proxy",
-				"error":"No WS Connection Exists with %s"%addr
-				}
-
-		libcc.send_json(ux_sock, resp)
-		ux_sock.close()
 
 
 ## Websocket Handler
