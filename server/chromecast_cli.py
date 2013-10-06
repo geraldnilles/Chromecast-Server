@@ -32,7 +32,7 @@ def cc_communicate(req):
 ## Play/Pause 
 def play_pause(addr):
 	obj = {
-		"cmd":"PLAYPAUSE",
+		"cmd":"play_pause",
 		"addr":addr
 		}
 
@@ -41,7 +41,7 @@ def play_pause(addr):
 ## Load Path into the Player
 def load(addr,path):
 	obj = {
-		"cmd":"LOAD",
+		"cmd":"load",
 		"addr":addr,
 		"path":path
 	}
@@ -50,7 +50,7 @@ def load(addr,path):
 ## Get Status from Player
 def status(addr):
 	obj = {
-		"cmd":"STATUS",
+		"cmd":"status",
 		"addr":addr
 	}
 	print repr(cc_ommunicate(obj))
@@ -60,7 +60,7 @@ def status(addr):
 # Jumps player to a certain percentage in the playback.
 def skip(addr,percent):
 	obj = {
-		"cmd":"SKIP",
+		"cmd":"skip",
 		"addr":addr,
 		"percent":percent
 	}
@@ -134,9 +134,9 @@ def exit(addr):
 if __name__ == "__main__":
 	import argparse
 	parser = argparse.ArgumentParser(description="Send Commands to Player")
-	parser.add_argument("-f","--path")
-	parser.add_argument("-p","--play-pause", metavar="IP_ADDR")
-	parser.add_argument("-s","--status",metavar="IP_ADDR")
+	parser.add_argument("-f","--path", metavar="/path/to/file")
+	parser.add_argument("-p","--play-pause",action="store_true")
+	parser.add_argument("-s","--status",action="store_true")
 	parser.add_argument("-k","--skip", type=float)
 	parser.add_argument("-d","--devices", action="store_true")
 	parser.add_argument("-m","--movies", action="store_true")
@@ -148,15 +148,23 @@ if __name__ == "__main__":
 
 	args = parser.parse_args()
 
-	
+	## Non-Chromecast Specific Commands
 	if args.devices:
 		devices()
 	elif args.movies:
 		movies()
+	## Chromecast Specific Commands
+	elif args.address == None:
+		print "You must specify an IP address for some commands"
+		print_help()
 	elif args.launch:
 		launch(args.address)
 	elif args.exit:
 		exit(args.address)
+	elif args.play_pause:
+		play_pause(args.address)
+	elif args.status:
+		status(args.address)
 	else:
 		parser.print_help()
 	

@@ -69,15 +69,7 @@ class Update_Handler(asyncore.dispatcher):
 			# If an address is in the request, it is intneded for
 			# a Chromecast Devices
 			if "addr" in req:
-				# Forward  Request to WebSocket Server
-				device = self.db["devices"][req["addr"]]
-				app_id="e7689337-7a7a-4640-a05a-5dd2bd7699f9_1"
-				if req["cmd"] == "launch":
-					dial.rest.launch_app( device, app_id)
-				elif req["cmd"] == "exit":
-					dial.rest.exit_app(device,app_id)
-				else:
-					resp["message"] = "CLI Error - Bad CMD"
+				resp["message"] = self.chromecast_command(req)
 			elif "cmd" not in req:
 				resp["message"] = "CLI Error - No Comand Given"
 			elif req["cmd"] == "movies":
@@ -97,6 +89,39 @@ class Update_Handler(asyncore.dispatcher):
 			resp["error"] = "No Packet Source Given"
 
 		self.write_buffer += libcc.json_to_pkt(resp)
+
+	def chromecast_command(self,req):
+		addr = req["addr"]
+		cmd = req["cmd"]
+		app_id = "e7689337-7a7a-4640-a05a-5dd2bd7699f9_1"
+		if addr in self.db["devices"]:
+			device = self.db["devices"][addr]
+		else:
+			device = None
+		if addr in self.db["websockets"]:
+			ws = self.db["websockets"][addr]
+		else:
+			ws = None
+
+		if cmd == "launch":
+			if device == None:
+				return "Invalid IP address"
+			else:
+				dial.rest.launch_app(device, app_id)
+		elif cmd == "exit":
+			if device == None:
+				return "Invalide IP address"
+			else:
+				dial.rest.exit_app(device, app_id)
+		elif cmd in ["play_pause","status","load","skip"]:
+			if ws == None:
+				return "App has not been launched yet"
+			else:
+				ws.send_msg(req)
+				return ws.recv_msg()
+
+		# Default Return Value
+		return "OK"
 
 ## Main Command Center Unix Socket Server
 #
