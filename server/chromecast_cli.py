@@ -53,7 +53,7 @@ def status(addr):
 		"cmd":"status",
 		"addr":addr
 	}
-	print repr(cc_ommunicate(obj))
+	print repr(cc_communicate(obj))
 
 ## Skip progress bar
 #
@@ -66,6 +66,14 @@ def skip(addr,percent):
 	}
 	print repr(cc_communicate(obj))
 
+
+def load(addr,path):
+	obj = {
+		"cmd":"load",
+		"addr":addr,
+		"src":path
+	}
+	print repr(cc_communicate(obj))
 
 #-----------------
 # DB Fetch Functions
@@ -134,7 +142,7 @@ def exit(addr):
 if __name__ == "__main__":
 	import argparse
 	parser = argparse.ArgumentParser(description="Send Commands to Player")
-	parser.add_argument("-f","--path", metavar="/path/to/file")
+	parser.add_argument("-u","--url", metavar="/path/to/file")
 	parser.add_argument("-p","--play-pause",action="store_true")
 	parser.add_argument("-s","--status",action="store_true")
 	parser.add_argument("-k","--skip", type=float)
@@ -156,7 +164,7 @@ if __name__ == "__main__":
 	## Chromecast Specific Commands
 	elif args.address == None:
 		print "You must specify an IP address for some commands"
-		print_help()
+		parser.print_help()
 	elif args.launch:
 		launch(args.address)
 	elif args.exit:
@@ -165,6 +173,10 @@ if __name__ == "__main__":
 		play_pause(args.address)
 	elif args.status:
 		status(args.address)
+	elif args.skip:
+		skip(args.address,args.skip)
+	elif args.url:
+		load(args.address,args.url)
 	else:
 		parser.print_help()
 	

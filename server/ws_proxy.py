@@ -186,7 +186,8 @@ class WS_Handler(asyncore.dispatcher):
 		return packet
 	
 	
-	def recv_msg(self,attempts = 10,t=0.1):
+	def recv_msg(self,attempts = 10,t=0.5):
+		print repr(self.inbox)
 		if len(self.inbox) > 0:
 			return self.inbox.pop(0)
 		elif attempts > 0:

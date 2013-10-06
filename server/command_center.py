@@ -24,13 +24,34 @@ class Update_Handler(asyncore.dispatcher):
 		self.command_center = cc
 		self.db = cc.db
 
+	# Check if there is any data ready to write
 	def writable(self):
+		# Check if the current write-buffer is not empty
 		if len(self.write_buffer) > 0:
 			return True
-		else:
-			return False
+		# Check if any of the Websockets proxy's have data
+		ws = self.db["websockets"]
+		for key in ws:
+			if len(ws[key].inbox) > 0:
+				return True		
+
+		# Otherwise, return true
+		return False
 
 	def handle_write(self):
+		# Check the Websockets for pending messages
+		ws = self.db["websockets"]
+		for key in ws:
+			if len(ws[key].inbox) > 0:
+				# If the inbox is not empty, add it to the write
+				# buffer
+				resp = {
+					"source":"command_center",
+					"message":ws[key].recv_msg()
+				}
+			
+				self.write_buffer += libcc.json_to_pkt(resp)	
+			
 		sent = self.send(self.write_buffer)
 		self.write_buffer[sent:]
 
@@ -50,13 +71,16 @@ class Update_Handler(asyncore.dispatcher):
 			self.read_buffer = self.read_buffer[size:]
 
 	def prepare_response(self,req):
+		# Setup a default response
 		resp = {
 			"source":"command_center",
 			"message":"OK"
 			}
+
 		if req["source"] == "discoverer":
 			for d in req["devices"]:
 				self.db["devices"][d["ip"]] = d	
+
 		elif req["source"] == "converter":
 			if "progress" in req:
 				pass
@@ -64,6 +88,7 @@ class Update_Handler(asyncore.dispatcher):
 			elif "complete" in req:
 				pass
 				# Remove Item from Queue
+
 		elif req["source"] in ["cli","webui"]:
 			print "CLI Command"
 			# If an address is in the request, it is intneded for
@@ -72,6 +97,8 @@ class Update_Handler(asyncore.dispatcher):
 				resp["message"] = self.chromecast_command(req)
 			elif "cmd" not in req:
 				resp["message"] = "CLI Error - No Comand Given"
+
+			# If not, the request was asking for database shit
 			elif req["cmd"] == "movies":
 				print "Movies"
 				resp["movies"] = self.db["movies"]
@@ -88,12 +115,18 @@ class Update_Handler(asyncore.dispatcher):
 			resp["msg"] = "Error"
 			resp["error"] = "No Packet Source Given"
 
-		self.write_buffer += libcc.json_to_pkt(resp)
+		# If a message was given, respond. 
+		if resp["message"] != None:
+			self.write_buffer += libcc.json_to_pkt(resp)
+		# If the message was None, wait for a response
 
 	def chromecast_command(self,req):
+		# Create Temp Variables
 		addr = req["addr"]
 		cmd = req["cmd"]
 		app_id = "e7689337-7a7a-4640-a05a-5dd2bd7699f9_1"
+
+		# Check if the provided address is valid
 		if addr in self.db["devices"]:
 			device = self.db["devices"][addr]
 		else:
@@ -103,25 +136,28 @@ class Update_Handler(asyncore.dispatcher):
 		else:
 			ws = None
 
+	
 		if cmd == "launch":
 			if device == None:
 				return "Invalid IP address"
 			else:
 				dial.rest.launch_app(device, app_id)
+				return "Launch Successful"
 		elif cmd == "exit":
 			if device == None:
 				return "Invalide IP address"
 			else:
 				dial.rest.exit_app(device, app_id)
+				return "Exit successful"
 		elif cmd in ["play_pause","status","load","skip"]:
 			if ws == None:
 				return "App has not been launched yet"
 			else:
 				ws.send_msg(req)
-				return ws.recv_msg()
+				# Wait for WS to return
+				return None 
+		
 
-		# Default Return Value
-		return "OK"
 
 ## Main Command Center Unix Socket Server
 #
