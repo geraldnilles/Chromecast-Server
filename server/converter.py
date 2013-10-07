@@ -2,6 +2,12 @@
 
 import libcommand_center as libcc
 
+#----------------
+# Constants
+#----------------
+
+HTTP_SERVER_MEDIA_FOLDER = "/mnt/raid/www/media"
+
 
 ## Convert to a Chromecast Friendly format
 #
@@ -111,21 +117,20 @@ def run_with_progress(cmd):
 		# Read the STDERR for 10 seconds
 		out = timed_read(p,10)
 		# Create a progress object
-		progress = {}
+		req = {}
 		# Use RE to parse frames and time
 		m = re.match("frame.*?([0-9]*).*time.*?([0-9]*)",out)
 		
 		# If possible, calcualte percentage (time/totoal time)
-		progress["time"] = m.group(2)
-		progress["frame"] = m.group(1)
-		progress["conversion_time"] = time.time()-start_time
-		# Send progress to Command Center
-		send_update(progress)
+		req["time"] = m.group(2)
+		req["frame"] = m.group(1)
+		req["conversion_time"] = time.time()-start_time
+		# Send progress to Command Center, discard the response
+		cc_communicate(req)
 
 	# Return the REturn Code
 	return p.poll() 
 
-<<<<<<< HEAD
 ## Timed File Read
 #
 # Reads the provided file object for a set period of time.  And then returns 
@@ -142,112 +147,44 @@ def timed_read(p,t):
 	# Read stdout for t seconds or unitl the process is finished
 	while(t > time.time() and p.poll == None):
 		out += p.stderr.read(1)
+
 	# Trim output to be less than 100 characters
 	if len(out) > 100:
 		return out[-99:]
 	else:
 		return out
 
-## Communicate with Command Center
-#
-# This is a generic function that sends a json object to the server.  All 
-# other communication functions use this function for the actual send/recv
-#
-# @param s - Socket Object point to the command center
-# @param msg - The Message you are sending to server.  Expected to be a 
-#	JSOn object
-# @returns the return message from the server
-def communicate(s,msg):
-	try:
-		# Connect to the Socket
-		s.connect(LOCAL_UNIX_SOCKET)
-		# Convert JSON object to string (if needed)
-		if type(msg) != str:
-			msg = json.dumps(msg)
-		# Send
-		s.sendall(msg)
-		# Recv
-		data = s.recv(1024)
-		# Close Socket
-		s.close()
-		# Load into a JSON object
-		ret = json.loads(data)
-	except socket.timeout:
-		ret = {"error":"timeout"}
-	return ret
-=======
-def new_msg():
-	msg = {}
-	msg["source"] = "converter"
-	return msg
->>>>>>> 1b948aca357e532cfccd58da17c0579c7999a3ca
-
 ## Check the Transcoding Queue
 #
 # This is a wrapper for the communicate function.  It Asks for a file to 
 # transcode.  This file is popped from the transcoding queue
 #
-# @param s - Socket object pointing to the command center
 # @return the file to convert.  If no file, returns None
 def check_queue():
-	req = new_msg()
-	req["request"]="jobs"
+	req = {"request":"queue"}
 
-	resp = libcc.client_send_recv(req)
-	if "infile" in resp:
-		return resp
-	else:
-		print "Error Communicating with Command Center: "+repr(resp)
-		return resp
+	resp = cc_communicate(req)
 
-<<<<<<< HEAD
-## Send Update to Command Center
-#
-# This a wrapper for the "communicate" function.  It sends a "status" message
-# to the Command Center
-#
-# @param s - Socket Object pointing to the command center
-# @param message - Status message being sent.
-def send_update(s,message):
-	req = {
-			"source":"converter",
-			"status":message
-			}
-	return communicate(s,req)
+	return resp
 
-## Start Daemon
-#
-# Start the Convert Daemon 
-def start_daemon():
-	# Create a Socket object
-	s = socket.socket(socket.AF_UNIX,socket.SOCK_STREAM)
-	s.settimeout(5)
-	while(1):
-		# Ask if there are any jobs in the Queue
-		job = check_queue(s)
-=======
-## Sends a status update to the Command Center
-def send_update(message):
-	req = new_msg()
-	req["status"]=message
-
-	resp = libcc.client_send_recv(req)
+def cc_communicate(req):
+	req["source"] = "converter"
+	resp = libcc.send_recv(req)
 	return resp
 
 
-def start_daemond():
+def loop_forever():
 	while(1):
 		# Ask if there are any jobs
 		job = check_queue()
->>>>>>> 1b948aca357e532cfccd58da17c0579c7999a3ca
 
 		# If so, convert them
 		if "infile" in job:
 			convert(job["infile"])
 
-		# Wait 5 seconds before queueing the queu again
-		time.sleep(5)
+		# Wait 10 seconds before queueing the queu again
+		time.sleep(10)
 		
 
 if __name__ == "__main__":
-	start_daemon()
+	loop_forever()

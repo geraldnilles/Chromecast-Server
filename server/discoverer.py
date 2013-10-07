@@ -13,8 +13,8 @@ def loop_forever():
 
 		# Send message to devices
 		libcc.send_recv(msg)
-		# Sleep for 10 minutes before we look again
-		time.sleep(60*10)
+		# Sleep for 60 minutes before we look again
+		time.sleep(60*60)
 
 
 if __name__ == "__main__":

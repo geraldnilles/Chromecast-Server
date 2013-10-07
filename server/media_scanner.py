@@ -89,7 +89,7 @@ def loop_forever():
 		ret = libcc.send_recv(db)
 
 		# Wait 10 minutes before the next scan
-		time.sleep(60)
+		time.sleep(60*10)
 		
 
 	return -1
