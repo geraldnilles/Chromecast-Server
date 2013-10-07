@@ -30,50 +30,64 @@ def cc_communicate(req):
 
 
 ## Play/Pause 
+#
+# This fuction toggles the Chromecast video player between Play and pause
+#
+# @param addr - A string containing the Chromecast's IP address
+# @return a JSON object containing the response
 def play_pause(addr):
 	obj = {
 		"cmd":"play_pause",
 		"addr":addr
 		}
 
-	print repr(cc_communicate(obj))
+	return cc_communicate(obj)
 
-## Load Path into the Player
-def load(addr,path):
-	obj = {
-		"cmd":"load",
-		"addr":addr,
-		"path":path
-	}
-	print repr(cc_communicate(obj))
-
-## Get Status from Player
+## Get Status
+#
+# This function reads the Chromecast's video player status
+#
+# @param addr - A stirng containing the IP address of the Chomecast
+# @return A JSON boject containing the Player's status
 def status(addr):
 	obj = {
 		"cmd":"status",
 		"addr":addr
 	}
-	print repr(cc_communicate(obj))
+	resp = cc_communicate(obj)
+	for key in resp["message"]:
+		print key,":",resp["message"][key]
 
-## Skip progress bar
+## Skip Ahead/Behind
 #
-# Jumps player to a certain percentage in the playback.
+# Jumps Chromecast video player to a certain percentage in the playback.
+#
+# @param addr - A string containing the IP address of the Chromecast Device
+# @param percent - A float containing the Percentage you want to jump to.  This 
+# 		should be between 0 and 100
+# @return A JSON object containing the response (usually just "OK")
 def skip(addr,percent):
 	obj = {
 		"cmd":"skip",
 		"addr":addr,
 		"percent":percent
 	}
-	print repr(cc_communicate(obj))
+	return cc_communicate(obj)
 
-
-def load(addr,path):
+## Load URL into the Player
+#
+# This function loads a URL into the Video Player
+#
+# @param addr - A stirng containing te Chromecast's Ip address
+# @param path - A URL to the Media File to be played
+# @return - A JSON object containing the Command's response
+def load(addr,url):
 	obj = {
 		"cmd":"load",
 		"addr":addr,
-		"src":path
+		"src":url
 	}
-	print repr(cc_communicate(obj))
+	return cc_communicate(obj)
 
 #-----------------
 # DB Fetch Functions
@@ -120,6 +134,12 @@ def devices():
 #-------------------
 
 ## Launch the Chromecast App
+#
+# This launches this project's Chromecast App on the selected Device.
+#
+# @param addr - A string containing the IP address of the device on which you want
+#		to launch the app.
+# @return - A JSOn object containing the message
 def launch(addr):
 	obj = {
 		"cmd":"launch",
@@ -127,8 +147,14 @@ def launch(addr):
 		}
 	resp = cc_communicate(obj)
 	
-	print resp["message"]
+	return resp["message"]
 
+## Exist the Chromecast App
+#
+# This exits the custom Chromecast App on the selected device
+#
+# @param addr - A Stirng containing the Ip address of the device
+# @return - A JSOn object containing the response message
 def exit(addr):
 	obj = {
 		"cmd":"exit",
@@ -136,7 +162,7 @@ def exit(addr):
 		}
 	resp = cc_communicate(obj)
 
-	print resp["message"]
+	return resp["message"]
 
 ## CLI argument Parser
 if __name__ == "__main__":

@@ -52,6 +52,7 @@ processes = [
 def send_recv(msg,path=UNIX_SOCKET_PATH):
 	s = socket.socket(socket.AF_UNIX,
 			socket.SOCK_STREAM)
+	s.settimeout(5)
 
 	try:
 		# Connect to the Socket

@@ -5,63 +5,84 @@ import libcommand_center as libcc
 import asyncore
 import socket
 import ws_proxy
-from socket import timeout as TIMEOUT_ERROR
+from socket import timeout as SOCK_TIMEOUT
+from socket import error as SOCK_ERROR
 import os.path
 import time
 import dial.rest
 
-#--------------
-# Constants
-#--------------
-
+## Update Handler
+#
+# This Socket handler is used to talk to the subprocesses.  When requests come in 
+# from the various sub-processes, it will handle the request accordingly.
 class Update_Handler(asyncore.dispatcher):
+	## Constructor
+	#
+	# Initializes the Update Handler
+	#
+	# @param sock - Socket Instance that is being handled
+	# @param cc - Reference to Command Center
 	def __init__(self,sock,cc):
 		asyncore.dispatcher.__init__(self,sock)
+		# Intitialize the read/write buffers
 		self.read_buffer = ""
 		self.write_buffer = ""
 
-		# Keep track of the command center and the CC and DB
+		# Keep track of the command center and the CC Database
 		self.command_center = cc
 		self.db = cc.db
 
-	# Check if there is any data ready to write
+	## Check if A Write is pending
+	#
+	# Checks if the writebuffer is empty. Also checks if any of the 
+	# Websockets have new messages in the Inbox
+	#
+	# @return - True if data is ready to be sent
 	def writable(self):
 		# Check if the current write-buffer is not empty
 		if len(self.write_buffer) > 0:
 			return True
-		# Check if any of the Websockets proxy's have data
+		# Check if any of the Websockets proxy's have messages waiting
 		ws = self.db["websockets"]
 		for key in ws:
 			if len(ws[key].inbox) > 0:
 				return True		
 
-		# Otherwise, return true
+		# If not data is queued, return false
 		return False
 
+	## Handles the Write
+	#
+	# This method actually writes a chunk of data
 	def handle_write(self):
 		# Check the Websockets for pending messages
 		ws = self.db["websockets"]
 		for key in ws:
+			# Check if the Websocket is not empty
 			if len(ws[key].inbox) > 0:
-				# If the inbox is not empty, add it to the write
-				# buffer
+				# Create a Response object
 				resp = {
 					"source":"command_center",
 					"message":ws[key].recv_msg()
 				}
-			
-				self.write_buffer += libcc.json_to_pkt(resp)	
-			
+				# Add it to the Write Buffer
+				self.write_buffer += libcc.json_to_pkt(resp)
+	
+		# Send a chunk of data from the write buffer
 		sent = self.send(self.write_buffer)
+		# Clear the data the was sent from the buffer
 		self.write_buffer[sent:]
 
-	
+	## Handle a Read event
+	# 
+	# This function reads a chunk of data and attemps to process it. If
+	# it cannot decode the data, it exits and waits for more data
 	def handle_read(self):
 		# Add new data to the read buffer
 		self.read_buffer += self.recv(1024)
 		# Attempt to decode the packet
 		req, size = libcc.pkt_to_json(self.read_buffer)
-		# If The Request oject is None, wait for more data
+		# If The Request oject is None, return and wait for more data
 		if req == None:
 			return
 		else:
@@ -70,58 +91,88 @@ class Update_Handler(asyncore.dispatcher):
 			# Adjust the read buffer accordingly
 			self.read_buffer = self.read_buffer[size:]
 
+	## Prepare a Response
+	# 
+	# This method generates a response based ont he request object.  If a
+	# proper response can be generated, it adds the data to the write buffer
+	# If more data is needed before a response can be made, it returns None
+	# and watis for th next chunk of data.
 	def prepare_response(self,req):
-		# Setup a default response
+		# Setup a default response object
 		resp = {
 			"source":"command_center",
 			"message":"OK"
 			}
-
-		if req["source"] == "discoverer":
+		#-----
+		# Determine the source of the request
+		#-----
+		
+		# Check if a source is not given
+		if "source" not in req:
+			resp["message"] = "Error - Source Not Given"
+		# If the request if from the device discoverer daemon
+		elif req["source"] == "discoverer":
+			# Add each device to the Command Center Database
 			for d in req["devices"]:
 				self.db["devices"][d["ip"]] = d	
 
+		# If the request is from the Media Converter (transcoder)
 		elif req["source"] == "converter":
+			# If a progress bar is given...
 			if "progress" in req:
+				# .. transcoding is still in progress.  Update
+				# the database accordingly
 				pass
-				# Update Progress for given item
+			# if job is complete...
 			elif "complete" in req:
+				# Remove that item from the transcode queue
+				# and update the Video database to show that this
+				# item is ready to cast
 				pass
-				# Remove Item from Queue
-
+			else:
+				resp["message"] = "Invalide Converter Check-in"
+		
+		# If the request is comeing from the CLI or the WebUI
 		elif req["source"] in ["cli","webui"]:
-			print "CLI Command"
 			# If an address is in the request, it is intneded for
 			# a Chromecast Devices
 			if "addr" in req:
+				# Break off to a seprate method for this
 				resp["message"] = self.chromecast_command(req)
+			# If no command was given, return an error
 			elif "cmd" not in req:
 				resp["message"] = "CLI Error - No Comand Given"
 
-			# If not, the request was asking for database shit
+
+			# The remaining commands are looking for database stuff
 			elif req["cmd"] == "movies":
-				print "Movies"
+				# Retrn a list of movies
 				resp["movies"] = self.db["movies"]
 			elif req["cmd"] == "devices":
+				# Return a list of Devices
 				resp["devices"] = self.db["devices"]
 			else:
 				resp["message"] = "CLI Error - Bad Command"				
-
+		# If the request is coming from the Filesystem scanner
 		elif req["source"] == "scanner":
 			# Overwrite the list of movies/tv on the database
 			self.db["movies"] = req["movies"]
 			self.db["tv"] = req["tv"]
+		#  If the source is something else, return an error
 		else:
-			resp["msg"] = "Error"
-			resp["error"] = "No Packet Source Given"
+			resp["message"] = "Source is invalid"
 
 		# If a message was given, respond. 
 		if resp["message"] != None:
 			self.write_buffer += libcc.json_to_pkt(resp)
 		# If the message was None, wait for a response
 
+	## Chromecast Specific Commands
+	#
+	# This function looks at requests intended for Chromecasts and generates
+	# a response
 	def chromecast_command(self,req):
-		# Create Temp Variables
+		# Create shorter Variables
 		addr = req["addr"]
 		cmd = req["cmd"]
 		app_id = "e7689337-7a7a-4640-a05a-5dd2bd7699f9_1"
@@ -131,30 +182,45 @@ class Update_Handler(asyncore.dispatcher):
 			device = self.db["devices"][addr]
 		else:
 			device = None
+		# Do the same for WebSockets
 		if addr in self.db["websockets"]:
 			ws = self.db["websockets"][addr]
 		else:
 			ws = None
 
-	
+		## Check the type of command
+
+		# If a launch Command
 		if cmd == "launch":
+			# Check if the device is valid
 			if device == None:
 				return "Invalid IP address"
 			else:
+				# Launch device using REST protocol
 				dial.rest.launch_app(device, app_id)
+				# Return a successful message
 				return "Launch Successful"
+		# If Exit command
 		elif cmd == "exit":
+			# check if the device is valid
 			if device == None:
 				return "Invalide IP address"
-			else:
+			else:	
+				# Exit App using REST protocol
 				dial.rest.exit_app(device, app_id)
 				return "Exit successful"
+		# If a Playback command
 		elif cmd in ["play_pause","status","load","skip"]:
+			# Check if the Websocekt is valid
 			if ws == None:
+				# If not, the websocket the app is likely not 
+				# launched yet
 				return "App has not been launched yet"
 			else:
+				# Forward the command through the websocket proxy
 				ws.send_msg(req)
-				# Wait for WS to return
+				# Return None.  The response will go t the WS's
+				# inbox so we will check that later.  
 				return None 
 		
 
@@ -222,18 +288,6 @@ class Command_Center(asyncore.dispatcher):
 		ws_proxy.WS_Server(self)
 	
 
-	## Communicate with a WebSocket
-	#
-	# Send a message to the websockets.  The target address should 
-	# contained inside the req JSON object
-	def websocket_communicate(self,req):
-		if req["addr"] in self.db["websockets"]:
-			wsock = self.db["websockets"][req["addr"]]
-			wsock.send_msg(req)
-			return wsock.recv_msg()
-		else:
-			return {"error":"No WS Connection for that address"}
-
 # Start the Command center when this script is run indepen
 if __name__ == '__main__':
 	# Create a Command Center Object
@@ -255,8 +309,8 @@ if __name__ == '__main__':
 			# Check processes and write to db
 			libcc.check_processes(ps)
 			cc._write_db()
+
 			# Print DB stats
-			
 			print "Current DB stats:"
 			for key in cc.db:
 				print "\t"+key+": "+str(len(cc.db[key]))

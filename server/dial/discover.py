@@ -121,11 +121,13 @@ def device_check(ip):
 			socket.SOCK_DGRAM)
 	sock.sendto(TMPL_M_SEARCH_REQUEST,(ip,MCAST_PORT))
 	packet = sock.recv(10000)
-	print packet
 	# Parse Packet for location header
 
 
-
+## Add Get The Device's name
+#
+# Request more info from the device, fetch its name and add it to the device
+# object.  This will be the "Friendly" name that the user assigs to it
 def add_device_name(d):
 	# Setup HTTP Connection object
 	conn = httplib.HTTPConnection(d["ip"],d["port"])
@@ -137,7 +139,7 @@ def add_device_name(d):
 	m = re.search("<friendlyName>(.*)</friendlyName>",data)
 	d["name"] = m.group(1)
 
-	# Add Application URL to deice object
+	# Add Application URL to deice object.  This is used to launch apps
 	for h in r.getheaders():
 		if h[0] == 'application-url':
 			m = re.search("http://.*?(/.*)",h[1])
