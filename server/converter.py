@@ -117,7 +117,7 @@ def run_with_progress(cmd):
 		# Read the STDERR for 10 seconds
 		out = timed_read(p,10)
 		# Create a progress object
-		req = {}
+		req = {"request":"update"}
 		# Use RE to parse frames and time
 		m = re.match("frame.*?([0-9]*).*time.*?([0-9]*)",out)
 		
@@ -130,6 +130,7 @@ def run_with_progress(cmd):
 
 	# Return the REturn Code
 	return p.poll() 
+
 
 ## Timed File Read
 #
@@ -153,6 +154,7 @@ def timed_read(p,t):
 		return out[-99:]
 	else:
 		return out
+
 
 ## Check the Transcoding Queue
 #
