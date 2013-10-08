@@ -132,9 +132,16 @@ This will return the object
 	"data":[]
 
 * Update the Transcoding Progress
+    * Update the transcoding progress to the command center
+
 	"cmd":"update"
+	"path":"/path/to/source/video/being/converted"
+
+* Mark a Transcoding job as complete
+    * Notify the command center that the device is done
 
 	"cmd":"complete"
+	"path":"/path/to/converted/video"
 
 	
 

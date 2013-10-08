@@ -19,11 +19,21 @@ HTTP_SERVER_MEDIA_FOLDER = "/mnt/raid/www/media"
 # @param infile - The filename of the video file you are converting
 # @return - 
 def convert(infile):
+
+	name = infile.split("/")[-1]
+	name = name.split(".")[0]
+	outfile = "%s/%s.mp4" % (HTTP_SERVER_MEDIA_FOLDER,name)
+
 	# CHeck codecs and packaging
-	"avconv -i infile"
-	vc = ""
-	ac = ""
-	cont = ""
+	p = subprocess.POpen(["avcon","-i",infile],stderr=subprocess.PIPE)
+	vid_info = p.stderr.read()
+
+	# user RegEx to determine the Video/Audio/Container info
+	m = re.search("",vid_info)
+	vc = m.group(1)	
+	ac = m.group(2)
+	cont = m.group(3)
+
 	if vc == "x264":
 		if ac == "aac":
 			if cont == "mp4":
@@ -36,7 +46,14 @@ def convert(infile):
 		video_audio_repackage(infile)
 	# When the convertion is complete, tell the command center to remove
 	# this item from the queue
-	send_update({"complete":infile})
+
+	req = {
+		"cmd":"complete",
+		"path":infile,
+		"out":outfile
+		}
+	cc_communicate(req)
+
 
 ## Link file to Video Server
 #
@@ -117,7 +134,8 @@ def run_with_progress(cmd):
 		# Read the STDERR for 10 seconds
 		out = timed_read(p,10)
 		# Create a progress object
-		req = {"request":"update"}
+		req = {"cmd":"update"}
+		req["path"] = cmd[2]
 		# Use RE to parse frames and time
 		m = re.match("frame.*?([0-9]*).*time.*?([0-9]*)",out)
 		
@@ -163,7 +181,7 @@ def timed_read(p,t):
 #
 # @return the file to convert.  If no file, returns None
 def check_queue():
-	req = {"request":"queue"}
+	req = {"cmd":"fetch"}
 
 	resp = cc_communicate(req)
 
