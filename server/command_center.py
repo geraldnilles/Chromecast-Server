@@ -109,7 +109,8 @@ class Update_Handler(asyncore.dispatcher):
 		
 		# Check if a source is not given
 		if "source" not in req:
-			resp["message"] = "Error - Source Not Given"
+			resp["message"] = "Error: Source Not Providd"
+		
 		# If the request if from the device discoverer daemon
 		elif req["source"] == "discoverer":
 			# Add each device to the Command Center Database
@@ -118,19 +119,20 @@ class Update_Handler(asyncore.dispatcher):
 
 		# If the request is from the Media Converter (transcoder)
 		elif req["source"] == "converter":
-			# If a progress bar is given...
-			if "progress" in req:
-				# .. transcoding is still in progress.  Update
-				# the database accordingly
-				pass
-			# if job is complete...
-			elif "complete" in req:
-				# Remove that item from the transcode queue
-				# and update the Video database to show that this
-				# item is ready to cast
-				pass
+			# Check if a command was provided
+			if "cmd" not in req:
+				resp["message"] = "Error: No cmd provided"
+			# Fetch Command
+			elif req["cmd"] == "fetch":
+				resp["path"] = self.db["transcode_queue"][0]["path"]
+			# Update Command
+			elif req["cmd"] == "update":
+				self.transcode_update(req)
+			# Complete Command
+			elif req["cmd"] == "complete":
+				self.transcode_complete(req)
 			else:
-				resp["message"] = "Invalide Converter Check-in"
+				resp["message"] = "Error: Invalid Converter Cmd"
 		
 		# If the request is comeing from the CLI or the WebUI
 		elif req["source"] in ["cli","webui"]:
@@ -151,6 +153,8 @@ class Update_Handler(asyncore.dispatcher):
 			elif req["cmd"] == "devices":
 				# Return a list of Devices
 				resp["devices"] = self.db["devices"]
+			elif req["cmd"] == "transcode_queue":
+				resp["transcode_queue"] = self.db["transcode_queue"]
 			else:
 				resp["message"] = "CLI Error - Bad Command"				
 		# If the request is coming from the Filesystem scanner
@@ -158,6 +162,7 @@ class Update_Handler(asyncore.dispatcher):
 			# Overwrite the list of movies/tv on the database
 			self.db["movies"] = req["movies"]
 			self.db["tv"] = req["tv"]
+
 		#  If the source is something else, return an error
 		else:
 			resp["message"] = "Source is invalid"
@@ -166,6 +171,35 @@ class Update_Handler(asyncore.dispatcher):
 		if resp["message"] != None:
 			self.write_buffer += libcc.json_to_pkt(resp)
 		# If the message was None, wait for a response
+
+
+	def converter_complete(self,req):
+		# Find the Item in the Transcode Queue to remove
+		for x in self.db["transcode_queue"]:
+			if req["path"] == x["path"]:
+				self.db["transcode_queue"].remove(x)
+
+		# Add the Transcoded path to the Movie Database
+		for x in self.db["movies"]:
+			if x["path"] == req["path"]:
+				x["transcoded"] = req["out"]
+
+		# Add the Transcoded path to the TV database
+		for show in self.db["tv"]:
+			for ep in show:
+				if ep["path"] == req["path"]:
+					ep["transcoded"] = req["out"]
+					
+
+	def converter_update(self,req):
+		# Find the item in the "Transcoding Queue"
+		for x in self.db["transcode_queue"]:
+			if req["path"] == x["path"]:
+				# Update the info
+				x["frame"] = req["frame"]
+				x["time"] = req["time"]
+				x["conversion_time"] = req["convversion_time"]
+
 
 	## Chromecast Specific Commands
 	#

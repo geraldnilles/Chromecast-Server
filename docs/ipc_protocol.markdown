@@ -141,8 +141,9 @@ This will return the object
     * Notify the command center that the device is done
 
 	"cmd":"complete"
-	"path":"/path/to/converted/video"
+	"path":"/path/to/the/infile"
+	"out":"/path/to/the/outfile"
 
-	
+
 
 # Example

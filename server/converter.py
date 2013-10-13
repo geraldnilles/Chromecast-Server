@@ -28,8 +28,8 @@ def convert(infile):
 	p = subprocess.POpen(["avcon","-i",infile],stderr=subprocess.PIPE)
 	vid_info = p.stderr.read()
 
-	# user RegEx to determine the Video/Audio/Container info
-	m = re.search("",vid_info)
+	# Use RegEx to determine the Video/Audio/Container info
+	m = re.search("Ad Re Here",vid_info)
 	vc = m.group(1)	
 	ac = m.group(2)
 	cont = m.group(3)
@@ -37,13 +37,13 @@ def convert(infile):
 	if vc == "x264":
 		if ac == "aac":
 			if cont == "mp4":
-				link(infile)
+				link(infile,outfile)
 			else:
-				repackage(infile)
+				repackage(infile,outfile)
 		else:
-			audio_repackage(infile)
+			audio_repackage(infile,outfile)
 	else:
-		video_audio_repackage(infile)
+		video_audio_repackage(infile,outfile)
 	# When the convertion is complete, tell the command center to remove
 	# this item from the queue
 
@@ -60,16 +60,14 @@ def convert(infile):
 # If not convertion is necesary, this will creates a soft link between the 
 # infile and the outfile.
 #
-# @param s - Socket object pointing to the Command Center (probably not needed)
 # @param infile - Input file you are linking to the http server folder.
+# @param outfile - Output path and filename
 # @return the return code of th "ln" command
-def link(infile):
-	# Tell the Command Center that The file is being linked
-	send_update("Linking file to http folder")
-	#
-	outfile = "%s/%s.mp4" % (HTTP_SERVER_MEDIA_FOLDER,infile)
+def link(infile,outfile):
+
 	# Run Command
-	ret_code = run_with_progress(["ln","-s","infile",outfile])
+	ret_code = run_with_progress(["ln","-s",infile,outfile])
+
 	return ret_code
 
 ## Repackge file to MP4
@@ -77,14 +75,12 @@ def link(infile):
 # If the Audio codec and Video codec are good but the container is bad, this
 # will preserve the media streams and repackage as an MP4
 #
-# @param s - Socket Object pointing to the Command Center
 # @param infile - Input file being repackaged as an MP4
+# @param outfile - Ouput file path and name
 # @return return code of the convertion
-def repackage(infile):
-	send_update("Repackaging file to MP4 (No transcoding)")
-	outfile = "%s/%s.mp4" % (HTTP_SERVER_MEDIA_FOLDER,infile)
-	ret_code = run_with_progress(["avconv","-i",infile,"-a:c","copy",
-			"-v:c","copy",outfile])
+def repackage(infile,outfile):
+	ret_code = run_with_progress(["avconv","-i",infile,"-c:a","copy",
+		"-c:v","copy",outfile])
 	return ret_code
 
 ## Transcode Audio to AAC and Repackage to MP4
@@ -92,28 +88,24 @@ def repackage(infile):
 # If the Video codec is good but Audio and Container are bad, this package 
 # will preserve the video stream and transcode the audio.
 #
-# @param s - Socket Object pointing to the command center
 # @param infile - Input file being transcoded
+# @param outfile - Ouput file path and name
 # @return return code of the convertion process
 def audio_repackage(infile):
-	send_update("Transcoding Audio to AAC.")
-	outfile = "%s/%s.mp4" % (HTTP_SERVER_MEDIA_FOLDER,infile)
-	ret_code = run_with_progress(	["avconv","-i",infile,"-a:c",
-		"lib_fdk_aac","-vbr","3","-v:c","copy",outfile])
+	ret_code = run_with_progress(	["avconv","-i",infile,"-c:a",
+		"lib_fdk_aac","-vbr","3","-c:v","copy",outfile])
 	return ret_code
 
 ## Transcode Audio and Video.  
 #
 # Transcodes video to H264 and audio to x264 and packages it as an MP4
 #
-# @param s - Socket Object pointing to the command center
 # @param infile - Input file being transcoded
+# @param outfile - Ouput file path and name
 # @return return code of the convertion process
-def video_audio_repackage(infile):
-	send_update("Transcoding Audio to AAC and Video to H264.")
-	outfile = "%s/%s.mp4" % (HTTP_SERVER_MEDIA_FOLDER,infile)
-	ret_code = run_with_progress(	["avconv","-i",infile,"-a:c",
-		"lib_fdk_aac","-vbr","3","-v:c","libx264","-cbr","23",outfile])
+def video_audio_repackage(infile,outfile):
+	ret_code = run_with_progress(	["avconv","-i",infile,"-c:a",
+		"lib_fdk_aac","-vbr","3","-c:v","libx264","-cbr","23",outfile])
 	return ret_code
 
 ## Runs a command and gets progress.
@@ -121,7 +113,6 @@ def video_audio_repackage(infile):
 # Runs the command given in the cmd list.  Every 10 seconds, it parses the 
 # STDOUT and figure out how much time is left.
 #
-# @param s - Socket Object pointing to the command center
 # @param cmd - A list of command line program and arguments
 # @return return code of the convertion process
 def run_with_progress(cmd):
@@ -196,11 +187,11 @@ def cc_communicate(req):
 def loop_forever():
 	while(1):
 		# Ask if there are any jobs
-		job = check_queue()
+		resp = check_queue()
 
 		# If so, convert them
-		if "infile" in job:
-			convert(job["infile"])
+		if "infile" in resp:
+			convert(resp["infile"])
 
 		# Wait 10 seconds before queueing the queu again
 		time.sleep(10)
