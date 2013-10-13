@@ -1,6 +1,11 @@
 #!/usr/bin/env python
 
 import libcommand_center as libcc
+import hashlib
+import subprocess
+import re
+import time
+
 
 #----------------
 # Constants
@@ -14,36 +19,52 @@ HTTP_SERVER_MEDIA_FOLDER = "/mnt/raid/www/media"
 # Checks the video and makes sure the codecs and container are supported.  If 
 # not, it converts them and put a copy in the video server folder
 #
-# @param s - Socket object pointing to the Command Center.  This will be used 
-# 	to send updates
-# @param infile - The filename of the video file you are converting
-# @return - 
+# @param infile - A path to the input file (video being converted)
+# @return - None
 def convert(infile):
 
-	name = infile.split("/")[-1]
-	name = name.split(".")[0]
+	# Create a Hash of the inFile path and use that as the filename for
+	# the converted file
+	name = hashlib.sha224(infile).hexdigest()
 	outfile = "%s/%s.mp4" % (HTTP_SERVER_MEDIA_FOLDER,name)
 
 	# CHeck codecs and packaging
-	p = subprocess.POpen(["avcon","-i",infile],stderr=subprocess.PIPE)
+	p = subprocess.Popen(["avconv","-i",infile],stderr=subprocess.PIPE)
 	vid_info = p.stderr.read()
 
-	# Use RegEx to determine the Video/Audio/Container info
-	m = re.search("Ad Re Here",vid_info)
-	vc = m.group(1)	
-	ac = m.group(2)
-	cont = m.group(3)
+	print "Input Path: "+infile
+	print "Output Path: "+outfile
 
-	if vc == "x264":
+	# Use RegEx to determine the Video/Audio/Container info
+	m = re.search("Input #[0-9], (.*?),",vid_info)
+	cont = m.group(1)
+
+	m = re.search("Stream.*?Video: ([a-zA-Z0-9]*)",vid_info)
+	vc = m.group(1)
+
+	m = re.search("Stream.*?Audio: ([a-zA-Z0-9]*)",vid_info)
+	ac = m.group(1)	
+
+	m = re.search("Duration:\s([\d]*):([\d]*):([\d]*)",vid_info)
+	hours = int(m.group(1))
+	minutes = int(m.group(2))
+	seconds = int(m.group(3))
+	duration = (hours*60*60) + (minutes*60) + seconds
+
+	print cont,ac,vc,duration
+
+
+	# Based on the Codec/Containers, pick the right conversion function
+	if vc == "h264":
 		if ac == "aac":
-			if cont == "mp4":
+			if cont in ["mov","mp4"]:
 				link(infile,outfile)
 			else:
-				repackage(infile,outfile)
+				repackage(infile,outfile,duration)
 		else:
-			audio_repackage(infile,outfile)
+			audio_repackage(infile,outfile,duration)
 	else:
-		video_audio_repackage(infile,outfile)
+		video_audio_repackage(infile,outfile,duration)
 	# When the convertion is complete, tell the command center to remove
 	# this item from the queue
 
@@ -52,6 +73,7 @@ def convert(infile):
 		"path":infile,
 		"out":outfile
 		}
+
 	cc_communicate(req)
 
 
@@ -64,11 +86,11 @@ def convert(infile):
 # @param outfile - Output path and filename
 # @return the return code of th "ln" command
 def link(infile,outfile):
-
+	print "Linking File"
 	# Run Command
-	ret_code = run_with_progress(["ln","-s",infile,outfile])
-
-	return ret_code
+	p = subprocess.Popen(["ln","-s",infile,outfile])
+	
+	return p.wait()
 
 ## Repackge file to MP4
 #
@@ -77,10 +99,19 @@ def link(infile,outfile):
 #
 # @param infile - Input file being repackaged as an MP4
 # @param outfile - Ouput file path and name
+# @param duration - Duration of Input Video File (used for Percent Calculation)
 # @return return code of the convertion
-def repackage(infile,outfile):
-	ret_code = run_with_progress(["avconv","-i",infile,"-c:a","copy",
-		"-c:v","copy",outfile])
+def repackage(infile,outfile,duration):
+	
+	print "Repackaging File"
+
+	ret_code = run_with_progress(["avconv",
+			"-y", # Overwrite Output File
+			"-i",infile, # Specify Input File
+			"-c:a","copy", # Set Audio/Video codecs to Copy
+			"-c:v","copy",
+			outfile], # Specify the Outpu File
+			duration) # Specify the video duration
 	return ret_code
 
 ## Transcode Audio to AAC and Repackage to MP4
@@ -90,10 +121,19 @@ def repackage(infile,outfile):
 #
 # @param infile - Input file being transcoded
 # @param outfile - Ouput file path and name
+# @param duration - Duration of Input Video File (used for Percent Calculation)
 # @return return code of the convertion process
-def audio_repackage(infile):
-	ret_code = run_with_progress(	["avconv","-i",infile,"-c:a",
-		"lib_fdk_aac","-vbr","3","-c:v","copy",outfile])
+def audio_repackage(infile,outfile,duration):
+	print "Convering Audio and Repackaging"
+
+	ret_code = run_with_progress(	["avconv",
+				"-y", # Overvite output File
+				"-i",infile, # Specify Infile
+				"-c:a",	"libfdk_aac", # Sepecify Audio Codec
+				"-vbr","3", # Specify Audio Quality
+				"-c:v","copy", # Copy Video Stream
+				outfile], # Specify Output File
+				duration) # Specify Duration
 	return ret_code
 
 ## Transcode Audio and Video.  
@@ -102,10 +142,22 @@ def audio_repackage(infile):
 #
 # @param infile - Input file being transcoded
 # @param outfile - Ouput file path and name
+# @param duration - Duration of Input Video File (used for Percent Calculation)
 # @return return code of the convertion process
-def video_audio_repackage(infile,outfile):
-	ret_code = run_with_progress(	["avconv","-i",infile,"-c:a",
-		"lib_fdk_aac","-vbr","3","-c:v","libx264","-cbr","23",outfile])
+def video_audio_repackage(infile,outfile,duration):
+	print "Convering Audio/Video and Repackaging"
+
+	ret_code = run_with_progress(	["avconv",
+				"-y",	# Overwrite Output File
+				"-i",infile, # Specify Input File
+				"-c:a",	"libfdk_aac", # AAC Audio Codec
+				"-vbr","3", # Set Audio Quality to 3
+				"-c:v","libx264", # h264 Video codec
+				"-cbr","23", # Set Video Quality to 23
+				outfile], # Specify Output File
+				duration) # Specify Duration
+	print ret_code
+
 	return ret_code
 
 ## Runs a command and gets progress.
@@ -115,28 +167,31 @@ def video_audio_repackage(infile,outfile):
 #
 # @param cmd - A list of command line program and arguments
 # @return return code of the convertion process
-def run_with_progress(cmd):
+def run_with_progress(cmd,duration):
 	# Start the process
 	p = subprocess.Popen(cmd,stdout=subprocess.PIPE,stderr=subprocess.PIPE)
 	# Record when the process started
 	start_time = time.time()
 	# Continue this loop until the process is complete.
-	while(p.poll == None):
+	while(p.poll() == None):
 		# Read the STDERR for 10 seconds
 		out = timed_read(p,10)
 		# Create a progress object
 		req = {"cmd":"update"}
-		req["path"] = cmd[2]
+		req["path"] = cmd[3]
 		# Use RE to parse frames and time
-		m = re.match("frame.*?([0-9]*).*time.*?([0-9]*)",out)
-		
-		# If possible, calcualte percentage (time/totoal time)
-		req["time"] = m.group(2)
-		req["frame"] = m.group(1)
-		req["conversion_time"] = time.time()-start_time
+		m = re.search("time=\s*([\.\d]*)",out)
+		if (m):	
+			t = float(m.group(1))	
+			req["time"] = t
+			req["percent"] = t/duration*100
+			req["conversion_time"] = int(time.time()-start_time)  
+		else:
+			# If you cant read the input
+			continue
 		# Send progress to Command Center, discard the response
 		cc_communicate(req)
-
+	print "Process done: "+repr(p.poll())
 	# Return the REturn Code
 	return p.poll() 
 
@@ -155,7 +210,7 @@ def timed_read(p,t):
 	# Output variable
 	out = ""
 	# Read stdout for t seconds or unitl the process is finished
-	while(t > time.time() and p.poll == None):
+	while(t > time.time() and p.poll() == None):
 		out += p.stderr.read(1)
 
 	# Trim output to be less than 100 characters
@@ -180,8 +235,9 @@ def check_queue():
 
 def cc_communicate(req):
 	req["source"] = "converter"
-	resp = libcc.send_recv(req)
-	return resp
+	print req
+	# resp = libcc.send_recv(req)
+	#return resp
 
 
 def loop_forever():
