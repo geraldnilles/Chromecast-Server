@@ -127,6 +127,8 @@ def devices():
 		print ip+":"+resp["devices"][ip]["port"]
 		print ""
 
+
+
 #------------------
 # Command Center Action Functions
 #
@@ -163,6 +165,37 @@ def exit(addr):
 	resp = cc_communicate(obj)
 
 	return resp["message"]
+
+
+## Prepare Media for Streaming
+#
+# This function tells the Command Center to add the follwing file to the
+# streaming Queue
+
+def conv_add(path):
+	obj = {
+		"cmd":"conv_add",
+		"path":path
+	}
+	resp = cc_communicate(obj)
+	return resp["message"]
+
+def conv_status():
+	obj = {
+		"cmd":"conv_status"
+	}
+	resp = cc_communicate(obj)
+        return resp["message"]
+
+
+def conv_remove(path):
+	obj = {
+		"cmd":"conv_remove",
+		"path":path
+	}
+	resp = cc_communicate(obj)
+        return resp["message"]
+	
 
 ## CLI argument Parser
 if __name__ == "__main__":

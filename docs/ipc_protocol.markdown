@@ -74,9 +74,21 @@ For all of the Fetch Oarguments,tThe Command Center's response will have the fol
     * Adds a media file to the transcoding queue.
     * This queue is used by the Converter daemon
 
-	"cmd":"convert",
+	"cmd":"conv",
+	"path":"/path/to/movie.mp4"
+resp = cc_communicate(obj)
+        return resp["message"]
+
+* Remove from Transcoding Queue
+    * Removes an item from the Transcoding Queue
+
+	"cmd":"conv_cancel",
 	"path":"/path/to/movie.mp4"
 
+* Check Transcoding Status
+    * Checks the conversion's status
+
+	"cmd":"conv_status"
 
 ### Chromecast Commands
 All of these packets send commands to a specific chromecast device
