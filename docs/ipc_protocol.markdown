@@ -42,21 +42,21 @@ As for the arguments, there will be subcategories of commands: Database commands
 All of these packets send commands to the Command Center Database.
 
 * Stop a Daemon
-    * Kill one of the Daemon processes
+Kill one of the Daemon processes
 
 
 	"cmd":"kill",
 	"process":"<name of process>"
 
 * Fetch Movies
-    * Fetches the list of movies from the database
+Fetches the list of movies from the database
 
 
 	"cmd":"fetch",
 	"type":"movies",
 
 * Fetch TV
-    * Fetches the list of TV shows from the database
+Fetches the list of TV shows from the database
 
 	"cmd":"fetch",
 	"type":"tv"
