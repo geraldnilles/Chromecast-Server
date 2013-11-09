@@ -44,11 +44,13 @@ All of these packets send commands to the Command Center Database.
 * Stop a Daemon
     * Kill one of the Daemon processes
 
+
 	"cmd":"kill",
 	"process":"<name of process>"
 
 * Fetch Movies
     * Fetches the list of movies from the database
+
 
 	"cmd":"fetch",
 	"type":"movies",
