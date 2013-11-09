@@ -8,10 +8,11 @@ import time
 # Constants 
 #-----------------
 
+# TODO Move this to a config file instead of hardcoding
 MOVIE_FOLDER = "/mnt/raid/Movies/Features"
 
 
-## Fine Files by Extention
+## Find Files by Extention
 #
 # Scans a folder (recusively), finds files with the given extension(s) and
 # returns a list of files that match the extension(s)
@@ -87,9 +88,12 @@ def loop_forever():
 
 		# Send database to the command cetner
 		ret = libcc.send_recv(db)
-
-		# Wait 10 minutes before the next scan
-		time.sleep(60*10)
+		if ret["message"] == "OK":
+			# if succesful, Wait 10 minutes before the next scan
+			time.sleep(60*10)
+		else:
+			# If it doesnt work out, sleep for 10 seconds
+			time.sleep(10)
 		
 
 	return -1

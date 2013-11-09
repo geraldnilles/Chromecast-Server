@@ -30,6 +30,8 @@ def app():
 	# Look at path and call appropriate function
 	pass
 
+# TODO Import the CLI to do the following functions
+
 # Creates a list of movies.
 def list_videos(filter):
 	# Get a list of moves from the Control Center
