@@ -17,11 +17,13 @@ Every packet must contain the "source" key-value pair.  The remaining args depen
 
 ## Command Center
 
-The command center source string is as shown below:
+All messages from the Command center will have the following format:
 
-	"source": "command_center"
+	"source": "command_center",
+	"message":"<string describing message>",
+	["data":JSON Object containing the requested data"]
 
-The default argument will be a "message" argument which either says "OK" if all went well or it will contain an Error message if somethign went wrong.
+All messages will have the "command\_center" source and a message.  The message will contain "OK" if all went well or an Error code if not.  If additional data is requested, the optional "data" field can contain hold it.  
 
 ## CLI/Web UI
 
@@ -43,19 +45,19 @@ All of these packets send commands to the Command Center Database.
 
 * Stop a Daemon
 
-Kill one of the Daemon processes
-
+Kill the daemon process sepecified by the "process" field.  Keep in mind that the Command Center will auto-start all processes that have stopped.  Therefore, all stopped daemons will automaticaly restart. If the process field is "all", all daemons will be killed and restarted.
 
 	"cmd":"kill",
 	"process":"<name of process>"
 
 * Fetch Movies
 
-Fetches the list of movies from the database
-
+Fetches the list of movies from the database.
 
 	"cmd":"fetch",
 	"type":"movies",
+
+The response will populate the "data" field will a list of Movie dictionaries.
 
 * Fetch TV
 
@@ -64,71 +66,91 @@ Fetches the list of TV shows from the database
 	"cmd":"fetch",
 	"type":"tv"
 
+The response will populate the "data" field with a list of TV dictionaries.
+
 * Fetch Devices
-    * Fetches the list of Discovered Chromecast Devices
+
+Fetches the list of Discovered Chromecast Devices
 
 	"cmd":"fetch",
 	"type":"devices"
 
-For all of the Fetch Oarguments,tThe Command Center's response will have the following format
+The response will populate the "data" filed with a list of devices dictionaries.
 
-	"source":"command_center",
-	"data":[list of movies/tv/devices/etc...]
 
 * Add to Transcoding Queue
-    * Adds a media file to the transcoding queue.
-    * This queue is used by the Converter daemon
+
+Adds a media file to the transcoding queue. This queue is used by the Converter daemon to determine which videos to work on
 
 	"cmd":"conv",
 	"path":"/path/to/movie.mp4"
-resp = cc_communicate(obj)
-        return resp["message"]
+
 
 * Remove from Transcoding Queue
-    * Removes an item from the Transcoding Queue
+
+Removes an item from the Transcoding Queue.  
 
 	"cmd":"conv_cancel",
 	"path":"/path/to/movie.mp4"
 
 * Check Transcoding Status
-    * Checks the conversion's status
+
+Checks the status of the current conversion queue.
 
 	"cmd":"conv_status"
+
+The response populates the data field with a list of items in the conversion queue as well as the current conversion status (Percent complete)
 
 ### Chromecast Commands
 All of these packets send commands to a specific chromecast device
 
 * Play/Pause Chromecast Video
-    * Toggles between Play and Pause on the selected Chromecast Device
+
+Toggles between Play and Pause on the selected Chromecast Device
 
 	"cmd":"play_pause"
 	"addr":"<Chromecast IP address>"
 
 * Load URL to Chromecast Device
-    * Sends a URL to the chromecast device
+
+Sends a URL to the chromecast device
 
 	"cmd":"load"
 	"addr":"<Chromecast IP address>"
 	"src":"</url/path/to/video.mp4>"
 
 * Skip Video Playback
-    * Skips in the video stream to the specificed percentage
+
+Skips in the video stream to the specificed percentage
 
 	"cmd":"skip"
 	"addr":"<Chromecast IP address>"
 	"percent":"<0 to 100>"
 
+* Get Playback Status
+
+Reads the current playback stats from the chromecast device specified.
+
+	"cmd":"status"
+	"addr":"<Chromecast IP address>"
+
+The response will populate the data field with a playback statistics.  The data includes current url being played, whether or not its paused, and the percent played.
+
 * Launch the Custom Web App
-    * Launches the Custom WebApp on the specified Chromecast Device
+
+Launches the Custom WebApp on the specified Chromecast Device
 
 	"cmd":"launch"
 	"addr":"<Chromecast IP address>"
 
 * Exit the Custom Web App
-    * Kills the WebApp on the the specified Chromecast device and returns it to the "Ready To Cast" screen
+
+Kills the WebApp on the the specified Chromecast device and returns it to the "Ready To Cast" screen
 	
 	"cmd":"exit"
 	"addr":"<Chromecast IP address>"
+
+
 
 ## Converter
 
@@ -139,28 +161,61 @@ The source string will look like this:
 	"source":"converter"
 
 * Fetch an Item from the Queue
-    * Fetch one object from the Transcoding queue
+
+Asks the command center if there is a file that needs transcoding.
 
 	"cmd":"fetch"
 
-This will return the object
-
-	"source":"command_center",
-	"data":[]
+The response will populate the data field with a path to the file being transcoded.  
 
 * Update the Transcoding Progress
-    * Update the transcoding progress to the command center
+
+Updates the command center's transcoding queue with convesion status.  This allows the command center to know how long until a device is ready to cast.
 
 	"cmd":"update"
 	"path":"/path/to/source/video/being/converted"
+	"percent":[percent complete],
 
 * Mark a Transcoding job as complete
-    * Notify the command center that the device is done
+
+Notifies the command center that transcoding has completed.
 
 	"cmd":"complete"
 	"path":"/path/to/the/infile"
-	"out":"/path/to/the/outfile"
 
 
+## Media Scanner
+The Media Scanner is used to search the filesystem for new media files that can be streamed to the chromecast.  This daemon periodically scans the filesystem looking for specific file extensions.  It generates a JSON object containing all of the database info and sends it back to the command center.  
 
-# Example
+The source string will look like this 
+
+	"source":"scanner"
+
+There is only one type of communication so there is no need for a 'cmd" field.
+
+* Update Database
+
+Sends a database object to the command center.  
+	
+	"movies":[list of movie dictionaries]
+	"tv":[list of tv dictionaries]
+	"music:["list of music dictionaries"]
+	"pictures:["list of picture dictionaries"]
+
+
+## Discoverer
+The discoverer daemon is used to search for Chromecast devices on the network.  After finding devices, it returns a list back to the command center.
+
+The source string will look like this
+
+	"source":"discoverer"
+
+There is only one type of communication, so there is no need for a "cmd" field.
+
+* Update Database
+
+Sends a list of devices to the command center.  
+
+	"devices":[list of device dicts]
+
+
