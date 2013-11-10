@@ -98,80 +98,138 @@ class Update_Handler(asyncore.dispatcher):
 	# If more data is needed before a response can be made, it returns None
 	# and watis for th next chunk of data.
 	def prepare_response(self,req):
-		# Setup a default response object
+		# Setup a default response object. "OK" is the default response
+		# if there is no error with the daemon update.
 		resp = {
 			"source":"command_center",
 			"message":"OK"
 			}
-		#-----
-		# Determine the source of the request
-		#-----
-		
+
+		#------------------------------------------------
+		# Analyze the Request Message and Create Response
+		#------------------------------------------------
 		# Check if a source is not given
 		if "source" not in req:
-			resp["message"] = "Error: Source Not Providd"
+			resp["message"] = "Error: Source Field not Provided"
 		
 		# If the request if from the device discoverer daemon
 		elif req["source"] == "discoverer":
-			# Add each device to the Command Center Database
-			for d in req["devices"]:
-				self.db["devices"][d["ip"]] = d	
-
+			self.handle_discoverer(req,resp)
+			
 		# If the request is from the Media Converter (transcoder)
 		elif req["source"] == "converter":
-			# Check if a command was provided
-			if "cmd" not in req:
-				resp["message"] = "Error: No cmd provided"
-			# Fetch Command
-			elif req["cmd"] == "fetch":
-				resp["path"] = self.db["transcode_queue"][0]["path"]
-			# Update Command
-			elif req["cmd"] == "update":
-				self.transcode_update(req)
-			# Complete Command
-			elif req["cmd"] == "complete":
-				self.transcode_complete(req)
-			else:
-				resp["message"] = "Error: Invalid Converter Cmd"
-		
-		# If the request is comeing from the CLI or the WebUI
+			self.handle_converter(req,resp)
+
+		# If the request is coming from one of the user interfaces
 		elif req["source"] in ["cli","webui"]:
-			# If an address is in the request, it is intneded for
-			# a Chromecast Devices
-			if "addr" in req:
-				# Break off to a seprate method for this
-				resp["message"] = self.chromecast_command(req)
-			# If no command was given, return an error
-			elif "cmd" not in req:
-				resp["message"] = "CLI Error - No Comand Given"
-
-
-			# The remaining commands are looking for database stuff
-			elif req["cmd"] == "movies":
-				# Retrn a list of movies
-				resp["movies"] = self.db["movies"]
-			elif req["cmd"] == "devices":
-				# Return a list of Devices
-				resp["devices"] = self.db["devices"]
-			elif req["cmd"] == "transcode_queue":
-				resp["transcode_queue"] = self.db["transcode_queue"]
-			else:
-				resp["message"] = "CLI Error - Bad Command"				
+			self.handle_user(req,resp)
+				
 		# If the request is coming from the Filesystem scanner
 		elif req["source"] == "scanner":
-			# Overwrite the list of movies/tv on the database
-			self.db["movies"] = req["movies"]
-			self.db["tv"] = req["tv"]
+			self.handle_scanner(req,resp)
 
 		#  If the source is something else, return an error
 		else:
 			resp["message"] = "Source is invalid"
 
+		#----------------------
+		# Send Response Message
+		#----------------------
 		# If a message was given, respond. 
 		if resp["message"] != None:
 			self.write_buffer += libcc.json_to_pkt(resp)
-		# If the message was None, wait for a response
+		# If the message was None, dont sent anying to write buffer
 
+	def handle_scanner(self,req,resp):
+		# Overwrite the list of movies/tv on the database
+		self.db["movies"] = req["movies"]
+		self.db["tv"] = req["tv"]
+
+	def handle_user(self,req,resp):
+		# If no command was given, return an error
+		if "cmd" not in req:
+			resp["message"] = "Error - No UI Comand Given"
+
+		elif req["cmd"] == "kill":
+			if "process" not in req:
+				resp["message"] = "Error - No Process Given"
+				return
+			for p in libcc.processes:
+				if p["name"] == req["process"]:
+					if p["proc"] == None:
+						resp["message"]="Error - Process already killed"
+						return
+					libcc.kill(p)
+					return
+
+			resp["message"] = "Error - Invalid Process Name"
+			return
+				
+		# The remaining commands are looking for database stuff
+		elif req["cmd"] == "fetch":
+			# Returns data from the database
+			if "type" not in req:
+				resp["message"] = "Error - No Type Given to Fetch"
+			elif req["type"] == "movies":
+				resp["data"] = self.db["movies"]
+			elif req["type"] == "tv":
+				resp["data"] = self.db["tv"]
+			elif req["type"] == "devices":
+				resp["data"] = self.db["devices"]
+			else:
+				resp["message"] = "Error - Invalide Fetch Type"
+			return
+		elif req["cmd"] == "conv":
+			if "path" not in req:
+				resp["message"] = "Error - Path not given"
+				return
+			else:
+				item = {
+					"path":req["path"],
+					"progress":0
+					}
+				self.db["transcode_queue"].append(item)
+
+		elif req["cmd"] == "conv_status":
+			resp["data"] = self.db["transcode_queue"]
+			return
+
+		elif req["cmd"] == "conv_cancel":
+			if "path" not in req:
+				resp["message"] = "Error - Path Not Given"
+				return
+			else:
+				for c in self.db["transcode_queue"]:
+					if req["path"] == c["path"]:
+						self.db["transcode_queue"].remove(c)
+						break
+				return
+						
+
+	def handle_discoverer(self,req,resp):
+		# Add each device to the Command Center Database
+		for d in req["devices"]:
+			# use the IP address as the dictonary key to avoid 
+			# multiple entries with the same IP
+			self.db["devices"][d["ip"]] = d
+		# As of now, there is no error checking so the resp wont be
+		# modified	
+
+	def handle_converter(self,req,resp):
+		# Check if a command was provided
+		if "cmd" not in req:
+			resp["message"] = "Error: No Command Provided"
+		# Fetch Command
+		elif req["cmd"] == "fetch":
+			resp["path"] = self.db["transcode_queue"][0]["path"]
+		# Update Command
+		elif req["cmd"] == "update":
+			self.transcode_update(req)
+		# Complete Command
+		elif req["cmd"] == "complete":
+			self.transcode_complete(req)
+		else:
+			resp["message"] = "Error: Invalid Converter Command"
 
 	def converter_complete(self,req):
 		# Find the Item in the Transcode Queue to remove
